@@ -1,0 +1,46 @@
+{
+  "name": "vtscheduler-ts",
+  "version": "0.1.0",
+  "description": "A VTuber live scheduler, Backend for ihaapi-ts",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "nodemon src/index.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ihateani-me/vtscheduler-ts.git"
+  },
+  "keywords": [
+    "vtuber",
+    "api",
+    "scheduler",
+    "twitch",
+    "youtube",
+    "bilibili"
+  ],
+  "author": "N4O",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ihateani-me/vtscheduler-ts/issues"
+  },
+  "homepage": "https://github.com/ihateani-me/vtscheduler-ts#readme",
+  "devDependencies": {
+    "@types/axios": "^0.14.0",
+    "@types/lodash": "^4.14.165",
+    "@types/moment-timezone": "^0.5.30",
+    "@types/mongoose": "^5.10.3",
+    "@types/winston": "^2.4.4",
+    "typescript": "^4.1.3",
+    "winston": "^3.3.3"
+  },
+  "dependencies": {
+    "axios": "^0.21.0",
+    "lodash": "^4.17.20",
+    "moment-timezone": "^0.5.32",
+    "mongoose": "^5.11.8",
+    "node-schedule-tz": "^1.2.1-4",
+    "nodemon": "^2.0.6",
+    "ts-mongoose": "0.0.24",
+    "xml2js": "^0.4.23"
+  }
+}

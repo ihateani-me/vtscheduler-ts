@@ -1,0 +1,34 @@
+{
+    "mongodb": {
+        "uri": "mongodb://127.0.0.1:27017",
+        "dbname": "vtapi"
+    },
+    "youtube": {
+        "api_keys": [],
+        "rotation_rate": 60 // In minutes
+    },
+    "twitch": {
+        "client_id": null,
+        "client_secret": null
+    },
+    "intervals": { // All of them are in minutes
+        "bilibili": {
+            "channels": 300,
+            "upcoming": 4,
+            "live": 2
+        },
+        "youtube": {
+            "channels": 300,
+            "feeds": 2,
+            "live": 1
+        },
+        "twitcasting": {
+            "channels": 300,
+            "live": 1
+        },
+        "twitch": {
+            "channels": 300,
+            "live": 1
+        }
+    }
+}
