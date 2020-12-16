@@ -11,7 +11,13 @@
         "client_id": null,
         "client_secret": null
     },
-    "intervals": { // All of them are in minutes
+    "workers": { // Enable or disable worker/scheduler, change it to false to disable and vice-versa
+        "youtube": true,
+        "bilibili": true,
+        "twitch": false,
+        "twitcasting": true
+    },
+    "intervals": { // All of them are in minutes, to disable the module completely, set it to -1
         "bilibili": {
             "channels": 300,
             "upcoming": 4,
