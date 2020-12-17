@@ -7,6 +7,7 @@ import { YTRotatingAPIKey } from "../utils/ytkey_rotator";
 import { fallbackNaN, filterEmpty, isNone } from "../utils/swissknife";
 import moment from "moment-timezone";
 import { SkipRunConfig } from "../models";
+import { resolveDelayCrawlerPromises } from "../utils/crawler";
 
 interface AnyDict {
     [key: string]: any;
@@ -83,9 +84,10 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, skipRunData: 
             return [];
         })
     ));
+    const wrappedPromises: Promise<any>[] = resolveDelayCrawlerPromises(xmls_to_fetch, 300);
 
     // @ts-ignore
-    const collected_video_ids_flat: XMLFetchedData[] = _.flattenDeep(await Promise.all(xmls_to_fetch));
+    const collected_video_ids_flat: XMLFetchedData[] = _.flattenDeep(await Promise.all(wrappedPromises));
     if (collected_video_ids_flat.length == 0) {
         logger.warn(`youtubeVideoFeeds() no new video`);
         return;
@@ -138,9 +140,10 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, skipRunData: 
             return [];
         })
     ))
+    const wrappedPromisesVideos: Promise<any>[] = resolveDelayCrawlerPromises(video_to_fetch, 300);
 
     // @ts-ignore
-    const youtube_videos_data: AnyDict[] = _.flattenDeep(await Promise.all(video_to_fetch));
+    const youtube_videos_data: AnyDict[] = _.flattenDeep(await Promise.all(wrappedPromisesVideos));
     const to_be_committed = youtube_videos_data.map((res_item) => {
         let video_id = res_item["id"];
         let video_type;
@@ -249,7 +252,9 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
         })
     ))
 
-    let items_data: any[] = await Promise.all(items_data_promises).catch((err) => {
+    const wrappedPromises: Promise<any>[] = resolveDelayCrawlerPromises(items_data_promises, 300);
+
+    let items_data: any[] = await Promise.all(wrappedPromises).catch((err) => {
         logger.error(`youtubeLiveHeartbeat() failed to fetch from API, error: ${err.toString()}`)
         return [];
     });

@@ -1,4 +1,4 @@
-import { createSchema, Type, typedModel, ExtractDoc, ExtractProps } from "ts-mongoose";
+import { createSchema, Type, typedModel, ExtractProps } from "ts-mongoose";
 
 const BilibiliVideoSchema = createSchema(
     {
@@ -6,6 +6,7 @@ const BilibiliVideoSchema = createSchema(
         room_id: Type.number({required: true}),
         title: Type.string({required: true}),
         startTime: Type.number(),
+        endTime: Type.number(),
         viewers: Type.number(),
         peakViewers: Type.number(),
         status: Type.string({required: true}),

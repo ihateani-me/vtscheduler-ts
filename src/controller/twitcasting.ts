@@ -5,6 +5,7 @@ import _ from "lodash";
 import { isNone } from "../utils/swissknife";
 import moment from "moment-timezone";
 import { SkipRunConfig } from "../models";
+import { resolveDelayCrawlerPromises } from "../utils/crawler";
 
 const CHROME_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36";
 
@@ -44,8 +45,17 @@ export async function twcastLiveHeartbeat(skipRunData: SkipRunConfig) {
             return {"res": "", "id": channel.id, "group": channel.group};
         })
     ));
+    const wrappedPromises: Promise<{
+        res: any;
+        id: string;
+        group: string;
+    } | {
+        res: string;
+        id: string;
+        group: string;
+    }>[] = resolveDelayCrawlerPromises(channelPromises, 300);
 
-    const collectedLives = await Promise.all(channelPromises);
+    const collectedLives = await Promise.all(wrappedPromises);
     let insertData: any[] = [];
     let updateData: any[] = [];
     let current_time = moment.tz("UTC").unix();
@@ -186,8 +196,9 @@ export async function twcastChannelsStats(skipRunData: SkipRunConfig) {
             return {};
         })
     ));
+    const wrappedPromises: Promise<any>[] = resolveDelayCrawlerPromises(channelPromises, 300);
     logger.info("twcastChannelsStats() executing API requests...");
-    const collectedChannels = (await Promise.all(channelPromises)).filter(res => Object.keys(res).length > 0);
+    const collectedChannels = (await Promise.all(wrappedPromises)).filter(res => Object.keys(res).length > 0);
     let updateData = [];
     for (let i = 0; i < collectedChannels.length; i++) {
         let result = collectedChannels[i];
