@@ -6,7 +6,7 @@ import mongoose from 'mongoose';
 import _ from "lodash";
 import { YTRotatingAPIKey } from "../utils/ytkey_rotator";
 import { fallbackNaN, filterEmpty, isNone } from "../utils/swissknife";
-import moment from "moment";
+import moment from "moment-timezone";
 import config from "../config.json";
 
 let mongouri = config.mongodb.uri;
@@ -242,13 +242,7 @@ async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey) {
         })
         .then((result) => {
             let yt_result = result.data;
-            let items = yt_result["items"].map((res: any) => {
-                // @ts-ignore
-                let video_data: YTVideoProps = _.find(chunks, {"id": res.id});
-                res["groupData"] = video_data["group"];
-                return res;
-            })
-            return items;
+            return yt_result["items"];
         }).catch((err) => {
             logger.error(`youtubeLiveHeartbeat() failed to fetch videos info for chunk ${idx}, error: ${err.toString()}`);
             return [];
@@ -287,9 +281,7 @@ async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey) {
             video_type = broadcast_cnt;
         }
 
-        let channel_id = snippets["channelId"];
         let title = snippets["title"];
-        let group = res_item["groupData"];
 
         let start_time = null;
         let ended_time = null;
@@ -336,10 +328,7 @@ async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey) {
             endTime: ended_time,
             viewers: viewers,
             peakViewers: new_peak,
-            channel_id: channel_id,
             thumbnail: thumbs,
-            group: group,
-            platform: "youtube"
         }
         return finalData;
     })
@@ -387,13 +376,7 @@ async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey) {
         })
         .then((result) => {
             let yt_result = result.data;
-            let items = yt_result["items"].map((res: any) => {
-                // @ts-ignore
-                let channel_data: YTChannelProps = _.find(chunks, {"id": res.id});
-                res["groupData"] = channel_data["group"];
-                return res;
-            })
-            return items;
+            return yt_result["items"];
         }).catch((err) => {
             logger.error(`youtubeChannelsStats() failed to fetch info for chunk ${idx}, error: ${err.toString()}`);
             return [];
@@ -418,8 +401,6 @@ async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey) {
 
         let title = snippets["title"];
         let desc = snippets["description"];
-        let pubAt = snippets["publishedAt"]
-        let group = res_item["groupData"];
 
         let thumbs = getBestThumbnail(snippets["thumbnails"], "");
         let subsCount = 0,
@@ -435,13 +416,10 @@ async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey) {
             id: ch_id,
             name: title,
             description: desc,
-            publishedAt: pubAt,
             thumbnail: thumbs,
             subscriberCount: subsCount,
             viewCount: viewCount,
             videoCount: videoCount,
-            group: group,
-            platform: "youtube"
         }
         return finalData;
     })
