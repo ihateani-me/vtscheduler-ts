@@ -45,6 +45,10 @@ export async function youtubeChannelDataset(dataset: VTuberModel[], apiKeys: YTR
     });
 
     toBeParsed = filterEmpty(toBeParsed);
+    if (toBeParsed.length < 1) {
+        logger.warn("youtubeChannelDataset() no new channels to be registered");
+        return;
+    }
 
     const chunked_channels_set = _.chunk(toBeParsed, 40);
     logger.info(`youtubeChannelDataset() checking channels with total of ${toBeParsed.length} channels (${chunked_channels_set.length} chunks)...`);
@@ -120,7 +124,7 @@ export async function youtubeChannelDataset(dataset: VTuberModel[], apiKeys: YTR
         return finalData;
     })
 
-    logger.info(`youtubeChannelDataset() committing update...`);
+    logger.info(`youtubeChannelDataset() committing new data...`);
     await YoutubeChannel.insertMany(to_be_committed).catch((err) => {
         logger.error(`youtubeChannelDataset() failed to insert new data, ${err.toString()}`);
     });
