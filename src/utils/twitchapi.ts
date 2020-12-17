@@ -58,7 +58,7 @@ export class TwitchHelix {
             let resp = await this.session.get(`${url}?${param_url}`, {
                 headers: headers
             })
-            return resp.data;   
+            return resp.data;
         }
     }
 

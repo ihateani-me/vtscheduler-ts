@@ -8,7 +8,7 @@ import { logger } from '../src/utils/logger';
 import { join } from "path";
 import { DatasetModel, VTuberModel } from './dataset/model';
 import _ from 'lodash';
-import { ttvChannelDataset, youtubeChannelDataset } from './controller';
+import { ttvChannelDataset, twcastChannelsDataset, youtubeChannelDataset } from './controller';
 import { TwitchHelix } from '../src/utils/twitchapi';
 import { isNone } from '../src/utils/swissknife';
 
@@ -65,7 +65,12 @@ const delayEnd = () => setTimeout(() => {
 }, 600);
 
 async function scrapeAndUpdate(filename: string, twitchAPI?: TwitchHelix) {
+    logger.info(`scrapeAndUpdate() processing group: ${filename}`);
     let datasetRead: DatasetModel = JSON.parse(readFileSync(join(__dirname, "dataset", filename), "utf-8"));
+    if (!_.has(datasetRead, "id")) {
+        logger.warn(`scrapeAndUpdate() ${filename} missing id key`);
+        datasetRead["id"] = filename.slice(0, -5);
+    }
     let youtubeData: VTuberModel[] = datasetRead.vliver.filter(f => _.has(f, "youtube")).map((d) => {
         d["id"] = datasetRead["id"];
         return d;
@@ -82,18 +87,25 @@ async function scrapeAndUpdate(filename: string, twitchAPI?: TwitchHelix) {
         d["id"] = datasetRead["id"];
         return d;
     });
-    if (config.workers.youtube) {
+
+    if (config.workers.youtube && youtubeData.length > 0) {
         // 25 secs
+        logger.info("scrapeAndUpdate() running youtube scraper...");
+        logger.info(`scrapeAndUpdate() youtube: ${youtubeData.length}`);
         let ytRotator = new YTRotatingAPIKey(config.youtube.api_keys, 0.4166666675);
         await youtubeChannelDataset(youtubeData, ytRotator);
     }
     if (config.workers.bilibili) {
 
     }
-    if (config.workers.twitcasting) {
-
+    if (config.workers.twitcasting && twcastData.length > 0) {
+        logger.info("scrapeAndUpdate() running twitcasting scraper...");
+        logger.info(`scrapeAndUpdate() twitcasting: ${twcastData.length}`);
+        await twcastChannelsDataset(twcastData);
     }
-    if (config.workers.twitch && typeof twitchAPI !== "undefined") {
+    if (config.workers.twitch && typeof twitchAPI !== "undefined" && ttvData.length > 0) {
+        logger.info("scrapeAndUpdate() running twitch scraper...");
+        logger.info(`scrapeAndUpdate() twitch: ${ttvData.length}`);
         await ttvChannelDataset(ttvData, twitchAPI);
     }
 }
@@ -103,7 +115,7 @@ async function propagateAndUpdate() {
         logger.error("propagateAndUpdate() missing youtube API keys to use");
     }
     let twitchAPI: TwitchHelix;
-    if (config.twitch.client_id && config.twitch.client_secret) {
+    if (config.twitch.client_id && config.twitch.client_secret && config.workers.twitch) {
         logger.info("propagateAndUpdate() initializing twitch API")
         twitchAPI = new TwitchHelix(config.twitch.client_id, config.twitch.client_secret);
         await twitchAPI.authorizeClient();
@@ -114,6 +126,7 @@ async function propagateAndUpdate() {
         .flatMap(async (group): Promise<void> => await scrapeAndUpdate(group, twitchAPI));
     await Promise.all(allDatasets).catch((err) => {
         logger.error(`propagateAndUpdate() failed to propagate, ${err.toString()}`);
+        logger.error(err);
     });
 }
 

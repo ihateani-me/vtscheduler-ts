@@ -15,7 +15,7 @@ export async function twcastChannelsDataset(dataset: VTuberModel[]) {
     })
 
     logger.info("twcastChannelsDataset() fetching channels data...");
-    let channels: TWCastChannelProps[] = await TwitcastingChannel.find({});
+    let channels: TWCastChannelProps[] = await TwitcastingChannel.find({"group": {"$eq": dataset[0].id}});
     let parsedChannelIds: string[] = channels.map(res => res.id);
     let channelIds = dataset.map(res => ({
         id: res.twitcasting,

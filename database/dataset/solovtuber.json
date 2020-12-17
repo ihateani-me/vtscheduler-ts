@@ -1,0 +1,60 @@
+{
+    "id": "solovtuber",
+    "name": "Solo VTuber",
+    "vliver": [
+        {
+            "name": "Shigure Ui",
+            "bilibili": "2601367",
+            "youtube": "UCt30jJgChL8qeT9VPadidSw"
+        },
+        {
+            "name": "Kagura Nana",
+            "youtube": "UCbfv8uuUXt3RSJGEwxny5Rw",
+            "bilibili": "386900246"
+        },
+        {
+            "name": "Maya Putri",
+            "youtube": "UCyZoDBhW8cLrzZ-dqKdQqEg"
+        },
+        {
+            "name": "Evelyn",
+            "youtube": "UCMxxFFeuhFQ30quuePTym0A"
+        },
+        {
+            "name": "Mia Canasyna",
+            "youtube": "UC7PYQOLdlvo9VgJjhrYeGaQ"
+        },
+        {
+            "name": "Nanahira",
+            "youtube": "UC_fYA9QRK-aJnFTgvR_4zug"
+        },
+        {
+            "name": "L0L0",
+            "youtube": "UCiBXVFuA-IPRrmb9r5cTT2w"
+        },
+        {
+            "name": "Pakichi",
+            "twitch": "pakichi"
+        },
+        {
+            "youtube": "UCO2sK7tl5-mdxOTehuPphew",
+            "name": "Gato Channel"
+        },
+        {
+            "youtube": "UCPzlCaUmR2MFfIjpmosMM0A",
+            "name": "Kusunoki Sio"
+        },
+        {
+            "youtube": "UCiBXVFuA-IPRrmb9r5cTT2w",
+            "name": "LOLO"
+        },
+        {
+            "youtube": "UCEK-P4R5WjgXEJyt7GlBeZQ",
+            "name": "littleflower"
+        },
+        {
+            "youtube": "UCAr7rLi_Wn09G-XfTA07d4g",
+            "name": "Tenjin Kotone"
+        }
+    ]
+}

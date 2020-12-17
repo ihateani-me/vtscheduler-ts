@@ -5,7 +5,7 @@ import { VTuberModel } from "../dataset/model";
 import { TwitchHelix } from "../../src/utils/twitchapi";
 
 export async function ttvChannelDataset(dataset: VTuberModel[], ttvAPI: TwitchHelix) {
-    let channels: TTVChannelProps[] = await TwitchChannel.find({});
+    let channels: TTVChannelProps[] = await TwitchChannel.find({"group": {"$eq": dataset[0].id}});
     let parsedChannelIds: string[] = channels.map(res => res.id);
     // @ts-ignore
     let channelIds: string[] = dataset.map(res => res.twitch);

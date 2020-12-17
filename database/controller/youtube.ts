@@ -33,7 +33,7 @@ export async function youtubeChannelDataset(dataset: VTuberModel[], apiKeys: YTR
         }
     })
 
-    let parsed_yt_channel: YTChannelProps[] = await YoutubeChannel.find({});
+    let parsed_yt_channel: YTChannelProps[] = await YoutubeChannel.find({"group": {"$eq": dataset[0].id}});
     let all_parsed_ids = _.map(parsed_yt_channel, "id");
 
     let toBeParsed = dataset.map((data) => {
