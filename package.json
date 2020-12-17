@@ -4,7 +4,8 @@
   "description": "A VTuber live scheduler, Backend for ihaapi-ts",
   "main": "src/index.ts",
   "scripts": {
-    "start": "nodemon src/index.ts"
+    "start": "nodemon src/index.ts",
+    "database": "ts-node database/entrypoint.ts"
   },
   "repository": {
     "type": "git",
