@@ -107,6 +107,12 @@ export async function youtubeChannelDataset(dataset: VTuberModel[], apiKeys: YTR
         if (_.has(statistics, "subscriberCount")) {
             subsCount = fallbackNaN(parseInt, statistics["subscriberCount"], statistics["subscriberCount"]);
         }
+        if (_.has(statistics, "viewCount")) {
+            viewCount = fallbackNaN(parseInt, statistics["viewCount"], statistics["viewCount"]);
+        }
+        if (_.has(statistics, "videoCount")) {
+            videoCount = fallbackNaN(parseInt, statistics["videoCount"], statistics["videoCount"]);
+        }
 
         // @ts-ignore
         let finalData: YTChannelProps = {
