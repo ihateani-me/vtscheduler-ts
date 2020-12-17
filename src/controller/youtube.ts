@@ -47,7 +47,7 @@ function getBestThumbnail(thumbnails: any, video_id: string): string {
     return `https://i.ytimg.com/vi/${video_id}/maxresdefault.jpg`;
 }
 
-async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey) {
+export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey) {
     let session = axios.create({
         headers: {
             "User-Agent": `vtschedule-ts/${vt_version} (https://github.com/ihateani-me/vtscheduler-ts)`
@@ -214,7 +214,7 @@ async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey) {
     });
 }
 
-async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey) {
+export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey) {
     let session = axios.create({
         headers: {
             "User-Agent": `vtschedule-ts/${vt_version} (https://github.com/ihateani-me/vtscheduler-ts)`
@@ -348,7 +348,7 @@ async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey) {
     })
 }
 
-async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey) {
+export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey) {
     let session = axios.create({
         headers: {
             "User-Agent": `vtschedule-ts/${vt_version} (https://github.com/ihateani-me/vtscheduler-ts)`
@@ -438,9 +438,3 @@ async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey) {
         logger.error(`youtubeChannelsStats() failed to update databases, ${err.toString()}`);
     })
 }
-
-export {
-    youtubeLiveHeartbeat,
-    youtubeVideoFeeds,
-    youtubeChannelsStats
-};
