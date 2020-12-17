@@ -42,8 +42,10 @@ export async function ttvChannelDataset(dataset: VTuberModel[], ttvAPI: TwitchHe
         newChannels.push(mappedUpdate);
     }
 
-    logger.info(`ttvChannelDataset() committing new data...`);
-    await TwitchChannel.insertMany(newChannels).catch((err) => {
-        logger.error(`ttvChannelDataset() failed to insert new data, ${err.toString()}`);
-    });
+    if (newChannels.length > 0) {
+        logger.info(`ttvChannelDataset() committing new data...`);
+        await TwitchChannel.insertMany(newChannels).catch((err) => {
+            logger.error(`ttvChannelDataset() failed to insert new data, ${err.toString()}`);
+        });
+    }
 }
