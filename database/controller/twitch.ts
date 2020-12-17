@@ -21,8 +21,14 @@ export async function ttvChannelDataset(dataset: VTuberModel[], ttvAPI: TwitchHe
     for (let i = 0; i < twitch_results.length; i++) {
         let result = twitch_results[i];
         logger.info(`ttvChannelDataset() parsing and fetching followers and videos ${result["login"]}`);
-        let followersData = await ttvAPI.fetchChannelFollowers(result["id"]);
-        let videosData = (await ttvAPI.fetchChannelVideos(result["id"])).filter(vid => vid["viewable"] === "public");
+        let followersData = await ttvAPI.fetchChannelFollowers(result["id"]).catch((err) => {
+            console.error(`ttvChannelDataset() failed to fetch follower list for: ${result["login"]}`);
+            return {"total": 0};
+        });
+        let videosData = (await ttvAPI.fetchChannelVideos(result["id"]).catch((err) => {
+            console.error(`ttvChannelDataset() failed to fetch video list for: ${result["login"]}`);
+            return [{"viewable": "private"}];
+        })).filter(vid => vid["viewable"] === "public");
         // @ts-ignore
         let channels_map: VTuberModel = _.find(dataset, {"twitch": result["login"]});
         let mappedUpdate = {
