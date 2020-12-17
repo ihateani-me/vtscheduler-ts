@@ -4,10 +4,11 @@ import { logger } from "../utils/logger";
 import _ from "lodash";
 import { isNone } from "../utils/swissknife";
 import moment from "moment-timezone";
+import { SkipRunConfig } from "../models";
 
 const CHROME_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36";
 
-export async function twcastLiveHeartbeat() {
+export async function twcastLiveHeartbeat(skipRunData: SkipRunConfig) {
     let session = axios.create({
         headers: {
             "User-Agent": CHROME_UA
@@ -15,8 +16,12 @@ export async function twcastLiveHeartbeat() {
     })
 
     logger.info("twcastLiveHeartbeat() fetching channels and videos data...");
-    let video_sets: TWCastVideoProps[] = await TwitcastingVideo.find({});
-    let channels: TWCastChannelProps[] = await TwitcastingChannel.find({});
+    let video_sets: TWCastVideoProps[] = (await TwitcastingVideo.find({}))
+                                        .filter(res => !skipRunData["groups"].includes(res.group))
+                                        .filter(res => !skipRunData["channel_ids"].includes(res.channel_id));    
+    let channels: TWCastChannelProps[] = (await TwitcastingChannel.find({}))
+                                        .filter(res => !skipRunData["groups"].includes(res.group))
+                                        .filter(res => !skipRunData["channel_ids"].includes(res.id));
     if (channels.length < 1) {
         logger.warn("twcastLiveHeartbeat() no registered channels");
         return;
@@ -149,7 +154,7 @@ export async function twcastLiveHeartbeat() {
     }   
 }
 
-export async function twcastChannelsStats() {
+export async function twcastChannelsStats(skipRunData: SkipRunConfig) {
     let session = axios.create({
         headers: {
             "User-Agent": CHROME_UA
@@ -157,7 +162,9 @@ export async function twcastChannelsStats() {
     })
 
     logger.info("twcastChannelsStats() fetching channels data...");
-    let channels: TWCastChannelProps[] = await TwitcastingChannel.find({});
+    let channels: TWCastChannelProps[] = (await TwitcastingChannel.find({}))
+                                        .filter(res => !skipRunData["groups"].includes(res.group))
+                                        .filter(res => !skipRunData["channel_ids"].includes(res.id));
     if (channels.length < 1) {
         logger.warn("twcastChannelsStats() no registered channels");
         return;

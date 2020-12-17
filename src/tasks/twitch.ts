@@ -6,12 +6,12 @@ export async function handleTTVChannel(activity: { attrs: { data: { ttvAPI: Twit
     let ttvAPI: TwitchHelix = activity.attrs.data.ttvAPI;
     let skippedUsage = activity.attrs.data.skipRun;
     logger.info("handleTTVChannel() executing job...");
-    await ttvChannelsStats(ttvAPI);
+    await ttvChannelsStats(ttvAPI, skippedUsage);
 }
 
 export async function handleTTVLive(activity: { attrs: { data: { ttvAPI: TwitchHelix; skipRun: any; }; }; }) {
     let ttvAPI: TwitchHelix = activity.attrs.data.ttvAPI;
     let skippedUsage = activity.attrs.data.skipRun;
     logger.info("handleTTVLive() executing job...");
-    await ttvLiveHeartbeat(ttvAPI);
+    await ttvLiveHeartbeat(ttvAPI, skippedUsage);
 }

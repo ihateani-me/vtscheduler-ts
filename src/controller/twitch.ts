@@ -4,11 +4,16 @@ import _ from "lodash";
 import { isNone } from "../utils/swissknife";
 import moment from "moment-timezone";
 import { TwitchHelix } from "../utils/twitchapi";
+import { SkipRunConfig } from "../models";
 
-export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix) {
+export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, skipRunData: SkipRunConfig) {
     logger.info("ttvLiveHeartbeat() fetching channels and videos data...");
-    let video_sets: TTVVideoProps[] = await TwitchVideo.find({});
-    let channels: TTVChannelProps[] = await TwitchChannel.find({});
+    let video_sets: TTVVideoProps[] = (await TwitchVideo.find({}))
+                                    .filter(res => !skipRunData["groups"].includes(res.group))
+                                    .filter(res => !skipRunData["channel_ids"].includes(res.channel_id));
+    let channels: TTVChannelProps[] = (await TwitchChannel.find({}))
+                                    .filter(res => !skipRunData["groups"].includes(res.group))
+                                    .filter(res => !skipRunData["channel_ids"].includes(res.id));
     if (channels.length < 1) {
         logger.warn("ttvLiveHeartbeat() no registered channels");
         return;
@@ -126,9 +131,11 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix) {
     }
 }
 
-export async function ttvChannelsStats(ttvAPI: TwitchHelix) {
+export async function ttvChannelsStats(ttvAPI: TwitchHelix, skipRunData: SkipRunConfig) {
     logger.info("ttvChannelsStats() fetching channels data...");
-    let channels: TTVChannelProps[] = await TwitchChannel.find({});
+    let channels: TTVChannelProps[] = (await TwitchChannel.find({}))
+                                    .filter(res => !skipRunData["groups"].includes(res.group))
+                                    .filter(res => !skipRunData["channel_ids"].includes(res.id));
     if (channels.length < 1) {
         logger.warn("ttvChannelsStats() no registered channels");
         return;

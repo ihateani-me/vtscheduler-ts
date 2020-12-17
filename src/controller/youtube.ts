@@ -6,6 +6,7 @@ import _ from "lodash";
 import { YTRotatingAPIKey } from "../utils/ytkey_rotator";
 import { fallbackNaN, filterEmpty, isNone } from "../utils/swissknife";
 import moment from "moment-timezone";
+import { SkipRunConfig } from "../models";
 
 interface AnyDict {
     [key: string]: any;
@@ -38,7 +39,7 @@ function getBestThumbnail(thumbnails: any, video_id: string): string {
     return `https://i.ytimg.com/vi/${video_id}/maxresdefault.jpg`;
 }
 
-export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey) {
+export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, skipRunData: SkipRunConfig) {
     let session = axios.create({
         headers: {
             "User-Agent": `vtschedule-ts/${vt_version} (https://github.com/ihateani-me/vtscheduler-ts)`
@@ -46,7 +47,9 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey) {
     })
 
     logger.info("youtubeVideoFeeds() fetching channels data...");
-    let archive: YTVideoProps[] = await YoutubeVideo.find({});
+    let archive: YTVideoProps[] = (await YoutubeVideo.find({}))
+                                .filter(res => !skipRunData["groups"].includes(res.group))
+                                .filter(res => !skipRunData["channel_ids"].includes(res.channel_id));
     let fetched_video_ids: FetchedVideo = {};
     archive.forEach((res) => {
         if (!Array.isArray(fetched_video_ids[res.channel_id])) {
@@ -55,7 +58,9 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey) {
         fetched_video_ids[res.channel_id].push(res.id);
     });
 
-    let channels: YTChannelProps[] = await YoutubeChannel.find({});
+    let channels: YTChannelProps[] = (await YoutubeChannel.find({}))
+                                    .filter(res => !skipRunData["groups"].includes(res.group))
+                                    .filter(res => !skipRunData["channel_ids"].includes(res.id));
 
     logger.info("youtubeVideoFeeds() creating job task for xml fetch...");
     const xmls_to_fetch = channels.map((channel) => (
@@ -200,12 +205,14 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey) {
         return finalData;
     })
 
-    await YoutubeVideo.insertMany(to_be_committed).catch((err) => {
-        logger.error(`youtubeVideoFeeds() failed to insert to database.\n${err.toString()}`);
-    });
+    if (to_be_committed.length > 0) {
+        await YoutubeVideo.insertMany(to_be_committed).catch((err) => {
+            logger.error(`youtubeVideoFeeds() failed to insert to database.\n${err.toString()}`);
+        });
+    }
 }
 
-export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey) {
+export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunData: SkipRunConfig) {
     let session = axios.create({
         headers: {
             "User-Agent": `vtschedule-ts/${vt_version} (https://github.com/ihateani-me/vtscheduler-ts)`
@@ -213,7 +220,9 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey) {
     })
 
     logger.info("youtubeLiveHeartbeat() fetching videos data...");
-    let video_sets: YTVideoProps[] = await YoutubeVideo.find({"status": {"$in": ["live", "upcoming"]}});
+    let video_sets: YTVideoProps[] = (await YoutubeVideo.find({"status": {"$in": ["live", "upcoming"]}}))
+                                    .filter(res => !skipRunData["groups"].includes(res.group))
+                                    .filter(res => !skipRunData["channel_ids"].includes(res.channel_id));
     if (video_sets.length < 1) {
         logger.warn(`youtubeLiveHeartbeat() skipping because no new live/upcoming`);
         return;
@@ -324,22 +333,24 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey) {
         return finalData;
     })
 
-    logger.info(`youtubeLiveHeartbeat() committing update...`);
-    const dbUpdate = to_be_committed.map((new_update) => (
-        YoutubeVideo.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
-            if (err) {
-                logger.error(`youtubeLiveHeartbeat() failed to update ${new_update.id}, ${err.toString()}`);
-            } else {
-                return;
-            }
+    if (to_be_committed.length > 0) {
+        logger.info(`youtubeLiveHeartbeat() committing update...`);
+        const dbUpdate = to_be_committed.map((new_update) => (
+            YoutubeVideo.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
+                if (err) {
+                    logger.error(`youtubeLiveHeartbeat() failed to update ${new_update.id}, ${err.toString()}`);
+                } else {
+                    return;
+                }
+            })
+        ))
+        await Promise.all(dbUpdate).catch((err) => {
+            logger.error(`youtubeLiveHeartbeat() failed to update databases, ${err.toString()}`);
         })
-    ))
-    await Promise.all(dbUpdate).catch((err) => {
-        logger.error(`youtubeLiveHeartbeat() failed to update databases, ${err.toString()}`);
-    })
+    }
 }
 
-export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey) {
+export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey, skipRunData: SkipRunConfig) {
     let session = axios.create({
         headers: {
             "User-Agent": `vtschedule-ts/${vt_version} (https://github.com/ihateani-me/vtscheduler-ts)`
@@ -347,7 +358,9 @@ export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey) {
     })
 
     logger.info("youtubeChannelsStats() fetching videos data...");
-    let channels_data: YTChannelProps[] = await YoutubeChannel.find({});
+    let channels_data: YTChannelProps[] = (await YoutubeChannel.find({}))
+                                        .filter(res => !skipRunData["groups"].includes(res.group))
+                                        .filter(res => !skipRunData["channel_ids"].includes(res.id));
     if (channels_data.length < 1) {
         logger.warn(`youtubeChannelsStats() skipping because no registered channels`);
         return;
@@ -415,17 +428,19 @@ export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey) {
         return finalData;
     })
 
-    logger.info(`youtubeChannelsStats() committing update...`);
-    const dbUpdate = to_be_committed.map((new_update) => (
-        YoutubeChannel.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
-            if (err) {
-                logger.error(`youtubeChannelsStats() failed to update ${new_update.id}, ${err.toString()}`);
-            } else {
-                return;
-            }
+    if (to_be_committed.length > 0) {
+        logger.info(`youtubeChannelsStats() committing update...`);
+        const dbUpdate = to_be_committed.map((new_update) => (
+            YoutubeChannel.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
+                if (err) {
+                    logger.error(`youtubeChannelsStats() failed to update ${new_update.id}, ${err.toString()}`);
+                } else {
+                    return;
+                }
+            })
+        ))
+        await Promise.all(dbUpdate).catch((err) => {
+            logger.error(`youtubeChannelsStats() failed to update databases, ${err.toString()}`);
         })
-    ))
-    await Promise.all(dbUpdate).catch((err) => {
-        logger.error(`youtubeChannelsStats() failed to update databases, ${err.toString()}`);
-    })
+    }
 }

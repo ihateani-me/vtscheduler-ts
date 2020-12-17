@@ -6,19 +6,19 @@ export async function handleYTChannel(activity: { attrs: { data: { ytKeys: YTRot
     let ytKeys: YTRotatingAPIKey = activity.attrs.data.ytKeys;
     let skippedUsage = activity.attrs.data.skipRun;
     logger.info("handleYTChannel() executing job...");
-    await youtubeChannelsStats(ytKeys);
+    await youtubeChannelsStats(ytKeys, skippedUsage);
 }
 
 export async function handleYTFeeds(activity: { attrs: { data: { ytKeys: YTRotatingAPIKey; skipRun: any; }; }; }) {
     let ytKeys: YTRotatingAPIKey = activity.attrs.data.ytKeys;
     let skippedUsage = activity.attrs.data.skipRun;
     logger.info("handleYTFeeds() executing job...");
-    await youtubeVideoFeeds(ytKeys);
+    await youtubeVideoFeeds(ytKeys, skippedUsage);
 }
 
 export async function handleYTLive(activity: { attrs: { data: { ytKeys: YTRotatingAPIKey; skipRun: any; }; }; }) {
     let ytKeys: YTRotatingAPIKey = activity.attrs.data.ytKeys;
     let skippedUsage = activity.attrs.data.skipRun;
     logger.info("handleYTLive() executing job...");
-    await youtubeLiveHeartbeat(ytKeys);
+    await youtubeLiveHeartbeat(ytKeys, skippedUsage);
 }

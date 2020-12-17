@@ -4,11 +4,11 @@ import { logger } from "../utils/logger";
 export async function handleTWCastChannel(activity: { attrs: { data: { skipRun: any; }; }; }) {
     let skippedUsage = activity.attrs.data.skipRun;
     logger.info("handleTWCastChannel() executing job...");
-    await twcastChannelsStats();
+    await twcastChannelsStats(skippedUsage);
 }
 
 export async function handleTWCastLive(activity: { attrs: { data: { skipRun: any; }; }; }) {
     let skippedUsage = activity.attrs.data.skipRun;
     logger.info("handleTWCastLive() executing job...");
-    await twcastLiveHeartbeat();
+    await twcastLiveHeartbeat(skippedUsage);
 }
