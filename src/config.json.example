@@ -13,7 +13,7 @@
     },
     "workers": {
         "youtube": true,
-        "bilibili": true,
+        "bilibili": false,
         "twitch": false,
         "twitcasting": true
     },
