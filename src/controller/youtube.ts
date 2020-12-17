@@ -375,7 +375,7 @@ async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey) {
 
     const chunked_channels_set = _.chunk(channels_data, 40);
     logger.info(`youtubeChannelsStats() checking channels with total of ${channels_data.length} channels (${chunked_channels_set.length} chunks)...`);
-    const items_data_promises = channels_data.map((chunks, idx) => (
+    const items_data_promises = chunked_channels_set.map((chunks, idx) => (
         session.get("https://www.googleapis.com/youtube/v3/channels", {
             params: {
                 part: "snippet,statistics",
@@ -448,7 +448,7 @@ async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey) {
 
     logger.info(`youtubeChannelsStats() committing update...`);
     const dbUpdate = to_be_committed.map((new_update) => (
-        YoutubeVideo.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
+        YoutubeChannel.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
             if (err) {
                 logger.error(`youtubeChannelsStats() failed to update ${new_update.id}, ${err.toString()}`);
             } else {
