@@ -8,7 +8,7 @@ import { logger } from '../src/utils/logger';
 import { join } from "path";
 import { DatasetModel, VTuberModel } from './dataset/model';
 import _ from 'lodash';
-import { youtubeChannelDataset } from './controller';
+import { ttvChannelDataset, youtubeChannelDataset } from './controller';
 import { TwitchHelix } from '../src/utils/twitchapi';
 import { isNone } from '../src/utils/swissknife';
 
@@ -93,10 +93,9 @@ async function scrapeAndUpdate(filename: string, twitchAPI?: TwitchHelix) {
     if (config.workers.twitcasting) {
 
     }
-    if (config.workers.twitch && !isNone(twitchAPI)) {
-
+    if (config.workers.twitch && typeof twitchAPI !== "undefined") {
+        await ttvChannelDataset(ttvData, twitchAPI);
     }
-
 }
 
 async function propagateAndUpdate() {
