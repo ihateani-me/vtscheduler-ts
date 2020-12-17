@@ -13,15 +13,15 @@ interface AnyDict {
 
 function getBestThumbnail(thumbnails: any, video_id: string): string {
     if (_.has(thumbnails, "maxres")) {
-        return thumbnails["maxres"];
+        return thumbnails["maxres"]["url"];
     } else if (_.has(thumbnails, "standard")) {
-        return thumbnails["standard"];
+        return thumbnails["standard"]["url"];
     } else if (_.has(thumbnails, "high")) {
-        return thumbnails["high"];
+        return thumbnails["high"]["url"];
     } else if (_.has(thumbnails, "medium")) {
-        return thumbnails["medium"];
+        return thumbnails["medium"]["url"];
     } else if (_.has(thumbnails, "default")) {
-        return thumbnails["default"];
+        return thumbnails["default"]["url"];
     }
     return `https://i.ytimg.com/vi/${video_id}/maxresdefault.jpg`;
 }
