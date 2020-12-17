@@ -1,0 +1,34 @@
+{
+    "id": "vshojo",
+    "name": "VShojo",
+    "vliver": [
+        {
+            "name": "Nyatasha Nyanners",
+            "twitch": "nyanners"
+        },
+        {
+            "name": "Projekt Melody",
+            "twitch": "projektmelody"
+        },
+        {
+            "name": "Froot",
+            "twitch": "bsapricot"
+        },
+        {
+            "name": "Zentreya",
+            "twitch": "zentreya"
+        },
+        {
+            "name": "Silvervale",
+            "twitch": "silvervale"
+        },
+        {
+            "name": "Ironmouse",
+            "twitch": "ironmouse"
+        },
+        {
+            "name": "Hime Hajime",
+            "twitch": "hajime"
+        }
+    ]
+}

@@ -1,0 +1,26 @@
+{
+    "id": "noripro",
+    "name": "Norio Production",
+    "vliver": [
+        {
+            "name": "Norio Burabura",
+            "youtube": "UCEd6G9T-jLieKWKVfpTlAKg"
+        },
+        {
+            "name": "Inuyama Tamaki",
+            "youtube": "UC8NZiqKx6fsDT3AVcMiVFyA",
+            "bilibili": "12362451",
+            "twitcasting": "norioo_"
+        },
+        {
+            "name": "Shirayuki Mishiro",
+            "youtube": "UCC0i9nECi4Gz7TU63xZwodg",
+            "bilibili": "405981431"
+        },
+        {
+            "name": "Milk Enomiya",
+            "youtube": "UCJCzy0Fyrm0UhIrGQ7tHpjg",
+            "bilibili": "419429042"
+        }
+    ]
+}

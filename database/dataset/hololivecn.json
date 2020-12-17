@@ -1,0 +1,32 @@
+{
+    "id": "hololivecn",
+    "name": "Hololive China",
+    "vliver": [
+        {
+            "name": "Yogiri",
+            "bilibili": "427061218"
+        },
+        {
+            "name": "Civia",
+            "bilibili": "354411419",
+            "youtube": "UCgNVXGlZIFK96XdEY20sVjg"
+        },
+        {
+            "name": "Spade Echo",
+            "bilibili": "456368455"
+        },
+        {
+            "name": "Doris",
+            "bilibili": "511613156"
+        },
+        {
+            "name": "Artia",
+            "bilibili": "511613155",
+            "twitch": "artia_hololive"
+        },
+        {
+            "name": "Rosalyn",
+            "bilibili": "511613157"
+        }
+    ]
+}
