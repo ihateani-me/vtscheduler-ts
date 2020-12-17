@@ -190,22 +190,29 @@ export class TwitchHelix {
             }
         }
         let next_page = res["pagination"]["cursor"];
+        if (isNone(next_page) || !next_page) {
+            return main_results;
+        }
         let doExit = false;
         while (!doExit) {
             let next_res = await this.getReq(this.BASE_URL + "videos", [params_base[0], `after=${next_page}`], headers);
             main_results.push(next_res["data"]);
             if (Object.keys(res["pagination"]).length < 1) {
-                doExit = true;
+                break;
             }
             if (_.has(res["pagination"], "cursor")) {
                 if (isNone(res["pagination"]["cursor"]) || !res["pagination"]["cursor"]) {
                     doExit = true;
+                    break;
                 }
             }
             if (doExit) {
                 break;
             }
             next_page = next_res["pagination"]["cursor"];
+            if (isNone(next_page) || !next_page) {
+                break;
+            }
         }
         main_results = _.flattenDeep(main_results);
         return main_results;
