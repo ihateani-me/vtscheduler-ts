@@ -1,18 +1,9 @@
 import { TwitchChannel, TwitchVideo, TTVChannelProps, TTVVideoProps } from "../models/twitch";
 import { logger } from "../utils/logger";
-import mongoose from 'mongoose';
 import _ from "lodash";
 import { isNone } from "../utils/swissknife";
 import moment from "moment-timezone";
-import config from "../config.json";
 import { TwitchHelix } from "../utils/twitchapi";
-
-let mongouri = config.mongodb.uri;
-if (mongouri.endsWith("/")) {
-    mongouri = mongouri.slice(0, -1);
-}
-
-mongoose.connect(`${mongouri}/${config.mongodb.dbname}`, {useNewUrlParser: true, useUnifiedTopology: true});
 
 export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix) {
     logger.info("ttvLiveHeartbeat() fetching channels and videos data...");

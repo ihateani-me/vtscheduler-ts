@@ -1,20 +1,11 @@
 import axios from "axios";
 import { TwitcastingChannel, TwitcastingVideo, TWCastChannelProps, TWCastVideoProps } from "../models/twitcasting";
 import { logger } from "../utils/logger";
-import mongoose from 'mongoose';
 import _ from "lodash";
 import { isNone } from "../utils/swissknife";
 import moment from "moment-timezone";
-import config from "../config.json";
 
 const CHROME_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36";
-
-let mongouri = config.mongodb.uri;
-if (mongouri.endsWith("/")) {
-    mongouri = mongouri.slice(0, -1);
-}
-
-mongoose.connect(`${mongouri}/${config.mongodb.dbname}`, {useNewUrlParser: true, useUnifiedTopology: true});
 
 export async function twcastLiveHeartbeat() {
     let session = axios.create({

@@ -2,19 +2,10 @@ import axios from "axios";
 import { YoutubeChannel, YoutubeVideo, YTChannelProps, YTVideoProps } from "../models/youtube";
 import { logger } from "../utils/logger";
 import { version as vt_version } from "../../package.json";
-import mongoose from 'mongoose';
 import _ from "lodash";
 import { YTRotatingAPIKey } from "../utils/ytkey_rotator";
 import { fallbackNaN, filterEmpty, isNone } from "../utils/swissknife";
 import moment from "moment-timezone";
-import config from "../config.json";
-
-let mongouri = config.mongodb.uri;
-if (mongouri.endsWith("/")) {
-    mongouri = mongouri.slice(0, -1);
-}
-
-mongoose.connect(`${mongouri}/${config.mongodb.dbname}`, {useNewUrlParser: true, useUnifiedTopology: true});
 
 interface AnyDict {
     [key: string]: any;
