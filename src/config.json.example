@@ -5,19 +5,19 @@
     },
     "youtube": {
         "api_keys": [],
-        "rotation_rate": 60 // In minutes
+        "rotation_rate": 60
     },
     "twitch": {
         "client_id": null,
         "client_secret": null
     },
-    "workers": { // Enable or disable worker/scheduler, change it to false to disable and vice-versa
+    "workers": {
         "youtube": true,
         "bilibili": true,
         "twitch": false,
         "twitcasting": true
     },
-    "intervals": { // All of them are in minutes, to disable the module completely, set it to -1
+    "intervals": {
         "bilibili": {
             "channels": 300,
             "upcoming": 4,

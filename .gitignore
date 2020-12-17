@@ -104,3 +104,4 @@ dist
 .tern-port
 
 src/config.json
+src/skip_run.json
