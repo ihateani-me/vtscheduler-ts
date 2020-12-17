@@ -1,6 +1,5 @@
 import _ from "lodash";
 import moment from "moment-timezone";
-import { log } from "winston";
 import { logger } from "./logger";
 
 export class YTRotatingAPIKey {

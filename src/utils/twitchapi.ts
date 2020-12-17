@@ -3,7 +3,6 @@ import moment from "moment-timezone";
 import { logger } from "./logger";
 import { version as vt_version } from "../../package.json";
 import { isNone } from "./swissknife";
-import { mapValues } from "lodash";
 import _ from "lodash";
 
 interface AnyDict {
