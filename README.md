@@ -35,36 +35,36 @@ Rename the config.json.example to config.json<br>
     },
     "youtube": {
         "api_keys": [],
-        "rotation_rate": 60 // In minutes
+        "rotation_rate": 60
     },
     "twitch": {
         "client_id": null,
         "client_secret": null
     },
-    "workers": { // Enable or disable worker/scheduler, change it to false to disable and vice-versa
+    "workers": {
         "youtube": true,
         "bilibili": true,
         "twitch": false,
         "twitcasting": true
     },
-    "intervals": { // All of them are in minutes, to disable the module completely, set it to -1
+    "intervals": {
         "bilibili": {
-            "channels": 300,
-            "upcoming": 4,
-            "live": 2
+            "channels": "*/60 */2 * * *",
+            "upcoming": "*/4 * * * *",
+            "live": "*/2 * * * *"
         },
         "youtube": {
-            "channels": 300,
-            "feeds": 2,
-            "live": 1
+            "channels": "*/60 */2 * * *",
+            "feeds": "*/2 * * * *",
+            "live": "*/1 * * * *"
         },
         "twitcasting": {
-            "channels": 300,
-            "live": 1
+            "channels": "*/60 */2 * * *",
+            "live": "*/1 * * * *"
         },
         "twitch": {
-            "channels": 300,
-            "live": 1
+            "channels": "*/60 */2 * * *",
+            "live": "*/1 * * * *"
         }
     }
 }
@@ -85,7 +85,8 @@ Rename the config.json.example to config.json<br>
   - **bilibili**: enable bilibili scheduler
   - **twitch**: enable Twitch scheduler (ensure you have Client ID and Secret put)
   - **twitcasting**: enable Twitcasting scheduler
-- **intervals**: self-explanatory, all of the number are in minutes
+- **intervals**: self-explanatory, all of those are in cron-style time<br>
+  If you need help refer here: [crontab.guru](https://crontab.guru/)
 
 ## Running
 Make sure you've already configured the config.json and the MongoDB server is up and running

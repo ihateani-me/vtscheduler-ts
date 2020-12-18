@@ -1,4 +1,4 @@
-import Codic from "codic";
+import { scheduleJob } from 'node-schedule';
 import mongoose from 'mongoose';
 import config from "./config.json";
 import skipRunConf from "./skip_run.json";
@@ -14,9 +14,7 @@ if (mongouri.endsWith("/")) {
 }
 
 logger.info("Connecting to database...");
-mongoose.connect(`${mongouri}/${config.mongodb.dbname}`, {useNewUrlParser: true, useUnifiedTopology: true});
-
-const codic = new Codic();
+mongoose.connect(`${mongouri}/${config.mongodb.dbname}`, {useNewUrlParser: true, useUnifiedTopology: true, useFindAndModify: false});
 
 if (!config.workers.youtube && !config.workers.bilibili && !config.workers.twitcasting && !config.workers.twitch) {
     logger.info("There's no worker enable, shutting down");
@@ -46,26 +44,13 @@ function emptyData(t: any) {
 (async function () {
     let totalRun = 0;
     if (config.workers.youtube && config.youtube.api_keys.length > 0) {
-        logger.info("codic() Enabling Youtube API Keys Rotator...");
+        logger.info("scheduler() Enabling Youtube API Keys Rotator...");
         let ytKeysAPI = new YTRotatingAPIKey(config.youtube.api_keys, config.youtube.rotation_rate);
 
-        logger.info("codic() Adding jobs for youtube part...");
-        await codic.assign("youtube channels", Tasks.handleYTChannel);
-        await codic.assign("youtube feeds", Tasks.handleYTFeeds);
-        await codic.assign("youtube live heartbeat", Tasks.handleYTLive);
-    
-        await codic.run("youtube channels")
-                    .use({ytKeys: ytKeysAPI, skipRun: skipRunConf})
-                    .every(`${config.intervals.youtube.channels} minutes`)
-                    .save();
-        await codic.run("youtube feeds")
-                    .use({ytKeys: ytKeysAPI, skipRun: skipRunConf})
-                    .every(`${config.intervals.youtube.feeds} minutes`)
-                    .save();
-        await codic.run("youtube live heartbeat")
-                    .use({ytKeys: ytKeysAPI, skipRun: skipRunConf})
-                    .every(`${config.intervals.youtube.live} minutes`)
-                    .save();
+        logger.info("scheduler() Adding jobs for youtube part...");
+        scheduleJob(config.intervals.youtube.live, async () => await Tasks.handleYTLive(ytKeysAPI, skipRunConf));
+        scheduleJob(config.intervals.youtube.feeds, async () => await Tasks.handleYTFeeds(ytKeysAPI, skipRunConf));
+        scheduleJob(config.intervals.youtube.channels, async () => await Tasks.handleYTChannel(ytKeysAPI, skipRunConf));
         totalRun += 3;
     }
 
@@ -74,43 +59,19 @@ function emptyData(t: any) {
     }
 
     if (config.workers.twitch && !emptyData(config.twitch.client_id) && !emptyData(config.twitch.client_secret)) {
-        logger.info("codic() Initializing Twitch Helix API...");
+        logger.info("scheduler() Initializing Twitch Helix API...");
         let ttvHelix = new TwitchHelix(config.twitch.client_id, config.twitch.client_secret);
 
-        logger.info("codic() Adding jobs for twitch part...");
-        await codic.assign("ttv channels", Tasks.handleTTVChannel);
-        await codic.assign("ttv live heartbeat", Tasks.handleTTVLive);
-        await codic.run("ttv channels")
-                    .use({ttvAPI: ttvHelix, skipRun: skipRunConf})
-                    .every(`${config.intervals.twitch.channels} minutes`)
-                    .save();
-        await codic.run("ttv live heartbeat")
-                    .use({ttvAPI: ttvHelix, skipRun: skipRunConf})
-                    .every(`${config.intervals.twitch.live} minutes`)
-                    .save();
+        logger.info("scheduler() Adding jobs for twitch part...");
+        scheduleJob(config.intervals.twitch.live, async () => await Tasks.handleTTVLive(ttvHelix, skipRunConf));
+        scheduleJob(config.intervals.twitch.channels, async () => await Tasks.handleTTVChannel(ttvHelix, skipRunConf));
         totalRun += 2;
     }
 
     if (config.workers.twitcasting) {
-        logger.info("codic() Adding jobs for twitcasting part...");
-        await codic.assign("twcast channels", Tasks.handleTTVChannel);
-        await codic.assign("twcast live heartbeat", Tasks.handleTTVLive);
-        await codic.run("twcast channels")
-                    .use({skipRun: skipRunConf})
-                    .every(`${config.intervals.twitcasting.channels} minutes`)
-                    .save();
-        await codic.run("twcast live heartbeat")
-                    .use({skipRun: skipRunConf})
-                    .every(`${config.intervals.twitcasting.live} minutes`)
-                    .save();
+        logger.info("scheduler() Adding jobs for twitcasting part...");
+        scheduleJob(config.intervals.twitcasting.live, async () => await Tasks.handleTWCastLive(skipRunConf));
+        scheduleJob(config.intervals.twitcasting.channels, async () => await Tasks.handleTWCastChannel(skipRunConf));
         totalRun += 2;
-    }
-
-    if (totalRun > 0) {
-        logger.info(`codic() starting codic scheduler, total tasks: ${totalRun} tasks!`);
-        await codic.start();
-    } else {
-        logger.warn("codic() no task are being scheduled, shutting down!");
-        return;
     }
 })();
