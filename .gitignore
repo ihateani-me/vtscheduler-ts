@@ -105,3 +105,4 @@ dist
 
 src/config.json
 src/skip_run.json
+build/
