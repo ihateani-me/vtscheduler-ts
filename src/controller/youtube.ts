@@ -49,75 +49,75 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, skipRunData: 
 
     logger.info("youtubeVideoFeeds() fetching channels data...");
     let archive: YTVideoProps[] = (await YoutubeVideo.find({}))
-                                .filter(res => !skipRunData["groups"].includes(res.group))
-                                .filter(res => !skipRunData["channel_ids"].includes(res.channel_id));
+        .filter(res => !skipRunData["groups"].includes(res.group))
+        .filter(res => !skipRunData["channel_ids"].includes(res.channel_id));
     let fetched_video_ids: FetchedVideo = {};
     archive.forEach((res) => {
-        if (!Array.isArray(fetched_video_ids[res.channel_id])) {
+        if (!_.has(fetched_video_ids, res.channel_id)) {
             fetched_video_ids[res.channel_id] = []
         }
         fetched_video_ids[res.channel_id].push(res.id);
     });
 
     let channels: YTChannelProps[] = (await YoutubeChannel.find({}))
-                                    .filter(res => !skipRunData["groups"].includes(res.group))
-                                    .filter(res => !skipRunData["channel_ids"].includes(res.id));
+        .filter(res => !skipRunData["groups"].includes(res.group))
+        .filter(res => !skipRunData["channel_ids"].includes(res.id));
 
     logger.info("youtubeVideoFeeds() creating job task for xml fetch...");
     const xmls_to_fetch = channels.map((channel) => (
-        session.get("https://www.youtube.com/feeds/videos.xml", {
+        axios.get('https://www.youtube.com/feeds/videos.xml', {
             params: {
                 channel_id: channel.id,
-                t: Date.now()
+                t: Date.now(),
             },
         })
-        .then((xmlResult) => {
-            [...xmlResult.data.matchAll(findVideoRegex)]
-                .map((match) => ({
-                    channel_id: channel.id,
-                    group: channel.group,
-                    video_id: match[1]
-                }))
-        })
-        .catch((err) => {
-            logger.error(`youtubeVideoFeeds() failed to fetch videos xml feeds for ${channel.id}, error: ${err.toString()}`);
-            return [];
-        })
+            .then((xmlResult) => (
+                [...xmlResult.data.matchAll(findVideoRegex)]
+                    .map((match) => ({
+                        channel_id: channel.id,
+                        video_id: match[1],
+                        title: match[2],
+                        group: channel.group,
+                    }))
+            ))
+            .catch((fetchErr) => {
+                logger.error(`youtubeVideoFeeds() Error fetching video list from XML feed channel: ${channel.id}, ${fetchErr.toString()}`);
+                return [];
+            })
     ));
-    const wrappedPromises: Promise<any>[] = resolveDelayCrawlerPromises(xmls_to_fetch, 300);
+    const wrappedPromises: Promise<{
+        channel_id: string;
+        video_id: any;
+        title: any;
+        group: string;
+    }[] | never[]>[] = resolveDelayCrawlerPromises(xmls_to_fetch, 300);
 
+    logger.info(`youtubeVideoFeeds() start executing xml fetch, total: ${wrappedPromises.length}`);
     // @ts-ignore
     const collected_video_ids_flat: XMLFetchedData[] = _.flattenDeep(await Promise.all(wrappedPromises));
-    if (collected_video_ids_flat.length == 0) {
-        logger.warn(`youtubeVideoFeeds() no new video`);
+    if (collected_video_ids_flat.length < 1) {
+        logger.warn(`youtubeVideoFeeds() no new videos`);
         return;
     }
-    const collected_video_ids: XMLFetchedData[][] = _.chunk(collected_video_ids_flat, 40);
     // @ts-ignore
-    let video_ids_set: XMLFetchedData[][] = collected_video_ids.map((xml_data, idx) => {
-        if (xml_data.length == 0) {
-            return [];
-        }
-        let video_ids = xml_data.map((res) => {
-            if (fetched_video_ids[res.channel_id].includes(res.video_id)) {
-                return null;
+    let video_ids_set: XMLFetchedData[] = collected_video_ids_flat.map((xml_data, idx) => {
+        if (_.has(fetched_video_ids, xml_data.channel_id)) {
+            if (_.includes(fetched_video_ids[xml_data.channel_id], xml_data.video_id)) {
+                return [];
             }
-            return {"video_id": res.video_id, "group": res.group};
-        })
-        video_ids = filterEmpty(video_ids);
-        if (video_ids.length < 1) {
-            logger.warn(`youtubeVideoFeeds() skipping chunk ${idx} since it's zero.`);
-            return [];
         }
-        return video_ids;
+        return xml_data;
     })
+
+    if (video_ids_set.length < 1) {
+        logger.warn("youtubeVideoFeeds() no new videos");
+        return;
+    }
 
     logger.info(`youtubeVideoFeeds() Fetching videos`);
     // @ts-ignore
-    video_ids_set = _.flattenDeep(video_ids_set);
-    // @ts-ignore
-    video_ids_set = _.chunk(video_ids_set, 40);
-    const video_to_fetch = video_ids_set.map((videos, idx) => (
+    const chunkedVideoFetch = _.chunk(_.flattenDeep(video_ids_set), 40);
+    const video_to_fetch = chunkedVideoFetch.map((videos, idx) => (
         session.get("https://www.googleapis.com/youtube/v3/videos", {
             params: {
                 part: "snippet,liveStreamingDetails",
@@ -127,23 +127,29 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, skipRunData: 
             },
             responseType: "json"
         })
-        .then((result) => {
-            let yt_result = result.data;
-            let items = yt_result["items"].map((res: { [x: string]: string | undefined; id: any; }) => {
-                let xml_res = _.find(videos, {"video_id": res.id});
-                res["groupData"] = xml_res?.group;
-                return res;
+            .then((result) => {
+                let yt_result = result.data;
+                let items = yt_result["items"].map((res: { [x: string]: string | undefined; id: any; }) => {
+                    let xml_res = _.find(videos, { "video_id": res.id });
+                    // @ts-ignore
+                    res["groupData"] = xml_res["group"];
+                    return res;
+                })
+                return items;
+            }).catch((err) => {
+                logger.error(`youtubeVideoFeeds() failed to fetch videos info for chunk ${idx}, error: ${err.toString()}`);
+                return [];
             })
-            return items;
-        }).catch((err) => {
-            logger.error(`youtubeVideoFeeds() failed to fetch videos info for chunk ${idx}, error: ${err.toString()}`);
-            return [];
-        })
     ))
     const wrappedPromisesVideos: Promise<any>[] = resolveDelayCrawlerPromises(video_to_fetch, 300);
 
     // @ts-ignore
     const youtube_videos_data: AnyDict[] = _.flattenDeep(await Promise.all(wrappedPromisesVideos));
+    if (youtube_videos_data.length < 1) {
+        logger.warn("youtubeVideoFeeds() no new videos");
+        return;
+    }
+    logger.info(`youtubeVideoFeeds() Parsing ${youtube_videos_data.length} new videos`);
     const to_be_committed = youtube_videos_data.map((res_item) => {
         let video_id = res_item["id"];
         let video_type;
@@ -209,6 +215,7 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, skipRunData: 
     })
 
     if (to_be_committed.length > 0) {
+        logger.info(`youtubeVideoFeeds() inserting new videos to databases.`)
         await YoutubeVideo.insertMany(to_be_committed).catch((err) => {
             logger.error(`youtubeVideoFeeds() failed to insert to database.\n${err.toString()}`);
         });
@@ -223,9 +230,9 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
     })
 
     logger.info("youtubeLiveHeartbeat() fetching videos data...");
-    let video_sets: YTVideoProps[] = (await YoutubeVideo.find({"status": {"$in": ["live", "upcoming"]}}))
-                                    .filter(res => !skipRunData["groups"].includes(res.group))
-                                    .filter(res => !skipRunData["channel_ids"].includes(res.channel_id));
+    let video_sets: YTVideoProps[] = (await YoutubeVideo.find({ "status": { "$in": ["live", "upcoming"] } }))
+        .filter(res => !skipRunData["groups"].includes(res.group))
+        .filter(res => !skipRunData["channel_ids"].includes(res.channel_id));
     if (video_sets.length < 1) {
         logger.warn(`youtubeLiveHeartbeat() skipping because no new live/upcoming`);
         return;
@@ -243,13 +250,13 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
             },
             responseType: "json"
         })
-        .then((result) => {
-            let yt_result = result.data;
-            return yt_result["items"];
-        }).catch((err) => {
-            logger.error(`youtubeLiveHeartbeat() failed to fetch videos info for chunk ${idx}, error: ${err.toString()}`);
-            return [];
-        })
+            .then((result) => {
+                let yt_result = result.data;
+                return yt_result["items"];
+            }).catch((err) => {
+                logger.error(`youtubeLiveHeartbeat() failed to fetch videos info for chunk ${idx}, error: ${err.toString()}`);
+                return [];
+            })
     ))
 
     const wrappedPromises: Promise<any>[] = resolveDelayCrawlerPromises(items_data_promises, 300);
@@ -305,7 +312,7 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
             viewers = fallbackNaN(parseInt, livedetails["concurrentViewers"], livedetails["concurrentViewers"]);
         }
 
-        let old_data = _.find(video_sets, {"id": video_id});
+        let old_data = _.find(video_sets, { "id": video_id });
         let old_peak_viewers = old_data?.peakViewers;
         let new_peak: number;
         if (typeof old_peak_viewers === "number" && typeof viewers === "number") {
@@ -341,7 +348,7 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
     if (to_be_committed.length > 0) {
         logger.info(`youtubeLiveHeartbeat() committing update...`);
         const dbUpdate = to_be_committed.map((new_update) => (
-            YoutubeVideo.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
+            YoutubeVideo.findOneAndUpdate({ "id": { "$eq": new_update.id } }, new_update, null, (err) => {
                 if (err) {
                     logger.error(`youtubeLiveHeartbeat() failed to update ${new_update.id}, ${err.toString()}`);
                 } else {
@@ -364,8 +371,8 @@ export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey, skipRunDat
 
     logger.info("youtubeChannelsStats() fetching videos data...");
     let channels_data: YTChannelProps[] = (await YoutubeChannel.find({}))
-                                        .filter(res => !skipRunData["groups"].includes(res.group))
-                                        .filter(res => !skipRunData["channel_ids"].includes(res.id));
+        .filter(res => !skipRunData["groups"].includes(res.group))
+        .filter(res => !skipRunData["channel_ids"].includes(res.id));
     if (channels_data.length < 1) {
         logger.warn(`youtubeChannelsStats() skipping because no registered channels`);
         return;
@@ -383,13 +390,13 @@ export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey, skipRunDat
             },
             responseType: "json"
         })
-        .then((result) => {
-            let yt_result = result.data;
-            return yt_result["items"];
-        }).catch((err) => {
-            logger.error(`youtubeChannelsStats() failed to fetch info for chunk ${idx}, error: ${err.toString()}`);
-            return [];
-        })
+            .then((result) => {
+                let yt_result = result.data;
+                return yt_result["items"];
+            }).catch((err) => {
+                logger.error(`youtubeChannelsStats() failed to fetch info for chunk ${idx}, error: ${err.toString()}`);
+                return [];
+            })
     ))
 
     let items_data: any[] = await Promise.all(items_data_promises).catch((err) => {
@@ -442,7 +449,7 @@ export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey, skipRunDat
     if (to_be_committed.length > 0) {
         logger.info(`youtubeChannelsStats() committing update...`);
         const dbUpdate = to_be_committed.map((new_update) => (
-            YoutubeChannel.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
+            YoutubeChannel.findOneAndUpdate({ "id": { "$eq": new_update.id } }, new_update, null, (err) => {
                 if (err) {
                     logger.error(`youtubeChannelsStats() failed to update ${new_update.id}, ${err.toString()}`);
                 } else {
