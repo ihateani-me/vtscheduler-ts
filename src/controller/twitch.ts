@@ -75,7 +75,7 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, skipRunData: SkipRun
             "channel_uuid": result["user_id"],
             "viewers": viewers,
             "peakViewers": peakViewers,
-            "thumbnai": thumbnail,
+            "thumbnail": thumbnail,
             // @ts-ignore
             "group": channel_map["group"],
             "platform": "twitch"
