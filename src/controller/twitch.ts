@@ -23,39 +23,10 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, skipRunData: SkipRun
     logger.info("ttvLiveHeartbeat() fetching to API...");
     let twitch_results: any[] = await ttvAPI.fetchLivesData(channelIds);
     logger.info("ttvLiveHeartbeat() parsing API results...");
-    let updateData = twitch_results.map((result) => {
-        if (_.has(result, "type") && result["type"] === "") {
-            logger.warn(`ttvLiveHeartbeat() skipping ${result['user_name']}`);
-            return [];
-        }
-
-        let start_time = moment.tz(result["started_at"], "UTC").unix();
-        let old_mappings = _.find(video_sets, {"id": result["id"]});
-        if (isNone(old_mappings)) {
-            return [];
-        }
-
-        let viewers = result["viewer_count"];
-        let peakViewers = _.get(old_mappings, "peakViewers", viewers);
-        if (viewers > peakViewers) {
-            peakViewers = viewers;
-        }
-        return {
-            "id": result["id"],
-            "title": result["title"],
-            "status": "live",
-            "startTime": start_time,
-            "endTime": null,
-            "viewers": viewers,
-            "peakViewers": peakViewers,
-        };
-    })
-
-    let insertData = twitch_results.map((result) => {
-        if (_.has(result, "type") && result["type"] === "") {
-            logger.warn(`ttvLiveHeartbeat() skipping ${result['user_name']}`);
-            return [];
-        }
+    let insertData: any[] = [];
+    let updateData: any[] = [];
+    for (let i = 0; i < twitch_results.length; i++) {
+        let result = twitch_results[i];
 
         let start_time = moment.tz(result["started_at"], "UTC").unix();
         let channel_map = _.find(channels, {"user_id": result["user_id"]});
@@ -64,27 +35,43 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, skipRunData: SkipRun
 
         let viewers = result["viewer_count"];
         let peakViewers = viewers;
-        return {
-            "id": result["id"],
-            "title": result["title"],
-            "status": "live",
-            "startTime": start_time,
-            "endTime": null,
-            // @ts-ignore
-            "channel_id": channel_map["id"],
-            "channel_uuid": result["user_id"],
-            "viewers": viewers,
-            "peakViewers": peakViewers,
-            "thumbnail": thumbnail,
-            // @ts-ignore
-            "group": channel_map["group"],
-            "platform": "twitch"
-        };
-    })
-    // @ts-ignore
-    updateData = _.flattenDeep(updateData);
-    // @ts-ignore
-    insertData = _.flattenDeep(insertData);
+
+        let old_mappings = _.find(video_sets, {"id": result["id"]});
+        if (isNone(old_mappings)) {
+            let insertNew = {
+                "id": result["id"],
+                "title": result["title"],
+                "status": "live",
+                "startTime": start_time,
+                "endTime": null,
+                // @ts-ignore
+                "channel_id": channel_map["id"],
+                "channel_uuid": result["user_id"],
+                "viewers": viewers,
+                "peakViewers": peakViewers,
+                "thumbnail": thumbnail,
+                // @ts-ignore
+                "group": channel_map["group"],
+                "platform": "twitch"
+            };
+            insertData.push(insertNew);
+        } else {
+            peakViewers = _.get(old_mappings, "peakViewers", viewers);
+            if (viewers > peakViewers) {
+                peakViewers = viewers;
+            }
+            let updateOld = {
+                "id": result["id"],
+                "title": result["title"],
+                "status": "live",
+                "startTime": start_time,
+                "endTime": null,
+                "viewers": viewers,
+                "peakViewers": peakViewers,
+            };
+            updateData.push(updateOld);
+        }
+    }
 
     logger.info("ttvLiveHeartbeat() checking old data for moving it to past streams...");
     let oldData = video_sets.map((oldRes) => {
@@ -102,7 +89,6 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, skipRunData: SkipRun
     });
     // @ts-ignore
     oldData = _.flattenDeep(oldData);
-    // @ts-ignore
     updateData = _.concat(updateData, oldData);
 
     if (insertData.length > 0) {
