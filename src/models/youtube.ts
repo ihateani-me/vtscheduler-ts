@@ -13,6 +13,7 @@ const YoutubeVideoSchema = createSchema(
         thumbnail: Type.string({required: true}),
         group: Type.string({required: true}),
         platform: Type.string({required: true}),
+        is_missing: Type.boolean(),
     }
 )
 

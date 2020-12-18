@@ -209,7 +209,8 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, skipRunData: 
             channel_id: channel_id,
             thumbnail: thumbs,
             group: group,
-            platform: "youtube"
+            platform: "youtube",
+            is_missing: false,
         }
         return finalData;
     })
@@ -271,7 +272,7 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
     }
     items_data = _.flattenDeep(items_data);
     logger.info(`youtubeLiveHeartbeat() preparing update...`);
-    const to_be_committed = items_data.map((res_item) => {
+    let to_be_committed = items_data.map((res_item) => {
         let video_id = res_item["id"];
         let video_type;
         if (!_.has(res_item, "liveStreamingDetails")) {
@@ -341,9 +342,33 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
             viewers: viewers,
             peakViewers: new_peak,
             thumbnail: thumbs,
+            is_missing: false,
         }
         return finalData;
     })
+
+    // check if something missing from the API
+    let expectedResults = _.map(video_sets, "id");
+    let actualResults = _.map(to_be_committed, "id");
+    let differenceResults = _.difference(expectedResults, actualResults);
+    if (differenceResults.length > 0) {
+        logger.info(`youtubeLiveHeartbeat() missing ${differenceResults.length} videos from API results, marking it as missing and past`);
+        let targetEndTime = moment.tz("UTC").unix();
+        let filteredDifferences = [];
+        for (let i = 0; i < differenceResults.length; i++) {
+            let missingId = differenceResults[i];
+            let idData = _.find(video_sets, {"id": missingId});
+            if (typeof idData === "undefined") {
+                logger.warn(`youtubeLiveHeartbeat() while checking missing response, ID ${missingId} are missing from database`);
+                continue;
+            }
+            idData["is_missing"] = true;
+            idData["status"] = "past";
+            idData["endTime"] = targetEndTime;
+            filteredDifferences.push(idData);
+        }
+        to_be_committed = _.concat(filteredDifferences);
+    }
 
     if (to_be_committed.length > 0) {
         logger.info(`youtubeLiveHeartbeat() committing update...`);
