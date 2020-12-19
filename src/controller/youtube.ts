@@ -241,7 +241,7 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
 
     const chunked_video_set = _.chunk(video_sets, 40);
     logger.info(`youtubeLiveHeartbeat() checking heartbeat on ${video_sets.length} videos (${chunked_video_set.length} chunks)...`);
-    const items_data_promises = video_sets.map((chunks, idx) => (
+    const items_data_promises = chunked_video_set.map((chunks, idx) => (
         session.get("https://www.googleapis.com/youtube/v3/videos", {
             params: {
                 part: "snippet,liveStreamingDetails",
@@ -484,6 +484,147 @@ export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey, skipRunDat
         ))
         await Promise.all(dbUpdate).catch((err) => {
             logger.error(`youtubeChannelsStats() failed to update databases, ${err.toString()}`);
+        })
+    }
+}
+
+export async function youtubeVideoMissingCheck(apiKeys: YTRotatingAPIKey, skipRunData: SkipRunConfig) {
+    let session = axios.create({
+        headers: {
+            "User-Agent": `vtschedule-ts/${vt_version} (https://github.com/ihateani-me/vtscheduler-ts)`
+        }
+    })
+
+    logger.info("youtubeVideoMissingCheck() fetching missing videos data...");
+    let video_sets: YTVideoProps[] = (await YoutubeVideo.find({"is_missing": {"$eq": true}}))
+        .filter(res => !skipRunData["groups"].includes(res.group))
+        .filter(res => !skipRunData["channel_ids"].includes(res.channel_id));
+    if (video_sets.length < 1) {
+        logger.warn(`youtubeVideoMissingCheck() skipping because no missing video to check`);
+        return;
+    }
+
+    const chunked_video_set = _.chunk(video_sets, 40);
+    logger.info(`youtubeVideoMissingCheck() checking heartbeat on ${video_sets.length} videos (${chunked_video_set.length} chunks)...`);
+    const items_data_promises = chunked_video_set.map((chunks, idx) => (
+        session.get("https://www.googleapis.com/youtube/v3/videos", {
+            params: {
+                part: "snippet,liveStreamingDetails",
+                id: _.join(_.map(chunks, "id"), ","),
+                maxResults: 50,
+                key: apiKeys.get()
+            },
+            responseType: "json"
+        })
+            .then((result) => {
+                let yt_result = result.data;
+                return yt_result["items"];
+            }).catch((err) => {
+                logger.error(`youtubeVideoMissingCheck() failed to fetch videos info for chunk ${idx}, error: ${err.toString()}`);
+                return [];
+            })
+    ))
+
+    const wrappedPromises: Promise<any>[] = resolveDelayCrawlerPromises(items_data_promises, 300);
+
+    let items_data: any[] = await Promise.all(wrappedPromises).catch((err) => {
+        logger.error(`youtubeVideoMissingCheck() failed to fetch from API, error: ${err.toString()}`)
+        return [];
+    });
+    if (items_data.length < 1) {
+        logger.warn("youtubeVideoMissingCheck() no response from API");
+        return;
+    }
+    items_data = _.flattenDeep(items_data);
+    logger.info(`youtubeVideoMissingCheck() preparing update...`);
+    let to_be_committed = items_data.map((res_item) => {
+        let video_id = res_item["id"];
+        let video_type;
+        if (!_.has(res_item, "liveStreamingDetails")) {
+            video_type = "video";
+            res_item["liveStreamingDetails"] = {};
+        }
+        let snippets: AnyDict = res_item["snippet"];
+        let livedetails: AnyDict = res_item["liveStreamingDetails"];
+        if (!_.has(snippets, "liveBroadcastContent")) {
+            video_type = "video";
+        }
+        let broadcast_cnt = snippets["liveBroadcastContent"];
+        if (isNone(broadcast_cnt) || !broadcast_cnt) {
+            video_type = "video";
+        }
+        if (!["live", "upcoming"].includes(broadcast_cnt)) {
+            video_type = "video";
+        } else {
+            video_type = broadcast_cnt;
+        }
+
+        let title = snippets["title"];
+
+        let start_time = null;
+        let ended_time = null;
+        if (_.has(livedetails, "scheduledStartTime")) {
+            start_time = moment.tz(livedetails["scheduledStartTime"], "UTC").unix();
+        } else if (_.has(livedetails, "actualStartTime")) {
+            start_time = moment.tz(livedetails["actualStartTime"], "UTC").unix();
+        }
+        if (_.has(livedetails, "actualEndTime")) {
+            ended_time = moment.tz(livedetails["actualEndTime"], "UTC").unix();
+            video_type = "past";
+        }
+
+        let viewers = null;
+        if (_.has(livedetails, "concurrentViewers")) {
+            viewers = fallbackNaN(parseInt, livedetails["concurrentViewers"], livedetails["concurrentViewers"]);
+        }
+
+        let old_data = _.find(video_sets, { "id": video_id });
+        let old_peak_viewers = old_data?.peakViewers;
+        let new_peak: number;
+        if (typeof old_peak_viewers === "number" && typeof viewers === "number") {
+            if (viewers > old_peak_viewers) {
+                new_peak = viewers;
+            } else {
+                new_peak = old_peak_viewers;
+            }
+        } else if (typeof viewers === "number") {
+            new_peak = viewers;
+        } else {
+            // @ts-ignore
+            new_peak = null;
+        }
+
+        let thumbs = getBestThumbnail(snippets["thumbnails"], video_id);
+
+        let finalData: YTVideoProps = {
+            id: video_id,
+            title: title,
+            status: video_type,
+            // @ts-ignore
+            startTime: start_time,
+            // @ts-ignore
+            endTime: ended_time,
+            viewers: viewers,
+            peakViewers: new_peak,
+            thumbnail: thumbs,
+            is_missing: false,
+        }
+        return finalData;
+    })
+
+    if (to_be_committed.length > 0) {
+        logger.info(`youtubeVideoMissingCheck() committing update...`);
+        const dbUpdate = to_be_committed.map((new_update) => (
+            YoutubeVideo.findOneAndUpdate({ "id": { "$eq": new_update.id } }, new_update, null, (err) => {
+                if (err) {
+                    logger.error(`youtubeVideoMissingCheck() failed to update ${new_update.id}, ${err.toString()}`);
+                } else {
+                    return;
+                }
+            })
+        ))
+        await Promise.all(dbUpdate).catch((err) => {
+            logger.error(`youtubeVideoMissingCheck() failed to update databases, ${err.toString()}`);
         })
     }
 }

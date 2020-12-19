@@ -26,7 +26,8 @@
         "youtube": {
             "channels": "*/60 */2 * * *",
             "feeds": "*/2 * * * *",
-            "live": "*/1 * * * *"
+            "live": "*/1 * * * *",
+            "missing_check": "*/5 * * * *"
         },
         "twitcasting": {
             "channels": "*/60 */2 * * *",

@@ -1,4 +1,4 @@
-import { youtubeChannelsStats, youtubeLiveHeartbeat, youtubeVideoFeeds } from "../controller";
+import { youtubeChannelsStats, youtubeLiveHeartbeat, youtubeVideoFeeds, youtubeVideoMissingCheck } from "../controller";
 import { logger } from "../utils/logger";
 import { YTRotatingAPIKey } from "../utils/ytkey_rotator";
 
@@ -15,4 +15,9 @@ export async function handleYTFeeds(ytKeys: YTRotatingAPIKey, skippedUsage: any)
 export async function handleYTLive(ytKeys: YTRotatingAPIKey, skippedUsage: any) {
     logger.info("handleYTLive() executing job...");
     await youtubeLiveHeartbeat(ytKeys, skippedUsage);
+}
+
+export async function handleYTMissing(ytKeys: YTRotatingAPIKey, skippedUsage: any) {
+    logger.info("handleYTMissing() executing job...");
+    await youtubeVideoMissingCheck(ytKeys, skippedUsage);
 }

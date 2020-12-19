@@ -51,6 +51,7 @@ function emptyData(t: any) {
         scheduleJob(config.intervals.youtube.live, async () => await Tasks.handleYTLive(ytKeysAPI, skipRunConf));
         scheduleJob(config.intervals.youtube.feeds, async () => await Tasks.handleYTFeeds(ytKeysAPI, skipRunConf));
         scheduleJob(config.intervals.youtube.channels, async () => await Tasks.handleYTChannel(ytKeysAPI, skipRunConf));
+        scheduleJob(config.intervals.youtube.missing_check, async () => await Tasks.handleYTMissing(ytKeysAPI, skipRunConf));
         totalRun += 3;
     }
 
