@@ -68,6 +68,7 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, skipRunData: SkipRun
                 "endTime": null,
                 "viewers": viewers,
                 "peakViewers": peakViewers,
+                "thumbnail": thumbnail,
             };
             updateData.push(updateOld);
         }
@@ -85,7 +86,6 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, skipRunData: SkipRun
             "startTime": oldRes["startTime"],
             "endTime": moment.tz("UTC").unix(),
         };
-
     });
     // @ts-ignore
     oldData = _.flattenDeep(oldData);
