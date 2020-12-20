@@ -153,7 +153,7 @@ export async function ttvChannelsStats(ttvAPI: TwitchHelix, skipRunData: SkipRun
         logger.info("ttvChannelsStats() updating channels...");
         const dbUpdateCommit = updateData.map((new_update) => (
             // @ts-ignore
-            TwitchVideo.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
+            TwitchChannel.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
                 if (err) {
                     // @ts-ignore
                     logger.error(`ttvChannelsStats() failed to update ${new_update.id}, ${err.toString()}`);
