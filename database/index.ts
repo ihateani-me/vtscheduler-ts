@@ -8,7 +8,7 @@ import { logger } from '../src/utils/logger';
 import { join } from "path";
 import { DatasetModel, VTuberModel } from './dataset/model';
 import _ from 'lodash';
-import { ttvChannelDataset, twcastChannelsDataset, youtubeChannelDataset } from './controller';
+import { bilibiliChannelsDataset, ttvChannelDataset, twcastChannelsDataset, youtubeChannelDataset } from './controller';
 import { TwitchHelix } from '../src/utils/twitchapi';
 import { isNone } from '../src/utils/swissknife';
 
@@ -95,8 +95,10 @@ async function scrapeAndUpdate(filename: string, twitchAPI?: TwitchHelix) {
         let ytRotator = new YTRotatingAPIKey(config.youtube.api_keys, 0.4166666675);
         await youtubeChannelDataset(youtubeData, ytRotator);
     }
-    if (config.workers.bilibili) {
-
+    if (config.workers.bilibili && bilibiliData.length > 0) {
+        logger.info("scrapeAndUpdate() running bilibili scraper...");
+        logger.info(`scrapeAndUpdate() bilibili: ${bilibiliData.length}`);
+        await bilibiliChannelsDataset(bilibiliData);
     }
     if (config.workers.twitcasting && twcastData.length > 0) {
         logger.info("scrapeAndUpdate() running twitcasting scraper...");
