@@ -230,7 +230,7 @@ export async function twcastChannelsStats(skipRunData: SkipRunConfig) {
         logger.info("twcastChannelsStats() updating channels...");
         const dbUpdateCommit = updateData.map((new_update) => (
             // @ts-ignore
-            TwitchVideo.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
+            TwitcastingChannel.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
                 if (err) {
                     // @ts-ignore
                     logger.error(`twcastChannelsStats() failed to update ${new_update.id}, ${err.toString()}`);
