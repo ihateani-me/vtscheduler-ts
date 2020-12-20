@@ -3,7 +3,7 @@ import { createSchema, Type, typedModel, ExtractProps } from "ts-mongoose";
 const BilibiliVideoSchema = createSchema(
     {
         id: Type.string({ required: true }),
-        room_id: Type.number({required: true}),
+        room_id: Type.string({required: true}),
         title: Type.string({required: true}),
         startTime: Type.number(),
         endTime: Type.number(),
