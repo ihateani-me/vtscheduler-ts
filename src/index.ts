@@ -42,21 +42,44 @@ function emptyData(t: any) {
 }
 
 (async function () {
-    let totalRun = 0;
+    let totalWorkers = 0;
     if (config.workers.youtube && config.youtube.api_keys.length > 0) {
         logger.info("scheduler() Enabling Youtube API Keys Rotator...");
         let ytKeysAPI = new YTRotatingAPIKey(config.youtube.api_keys, config.youtube.rotation_rate);
 
         logger.info("scheduler() Adding jobs for youtube part...");
-        scheduleJob(config.intervals.youtube.live, async () => await Tasks.handleYTLive(ytKeysAPI, skipRunConf));
-        scheduleJob(config.intervals.youtube.feeds, async () => await Tasks.handleYTFeeds(ytKeysAPI, skipRunConf));
-        scheduleJob(config.intervals.youtube.channels, async () => await Tasks.handleYTChannel(ytKeysAPI, skipRunConf));
-        scheduleJob(config.intervals.youtube.missing_check, async () => await Tasks.handleYTMissing(ytKeysAPI, skipRunConf));
-        totalRun += 3;
+        if (typeof config.intervals.youtube.live === "string") {
+            scheduleJob(config.intervals.youtube.live, async () => await Tasks.handleYTLive(ytKeysAPI, skipRunConf));
+            totalWorkers++;
+        }
+        if (typeof config.intervals.youtube.feeds === "string") {
+            scheduleJob(config.intervals.youtube.feeds, async () => await Tasks.handleYTFeeds(ytKeysAPI, skipRunConf));
+            totalWorkers++;
+        }
+        if (typeof config.intervals.youtube.channels === "string") {
+            scheduleJob(config.intervals.youtube.channels, async () => await Tasks.handleYTChannel(ytKeysAPI, skipRunConf));
+            totalWorkers++;
+        }
+        if (typeof config.intervals.youtube.missing_check === "string") {
+            scheduleJob(config.intervals.youtube.missing_check, async () => await Tasks.handleYTMissing(ytKeysAPI, skipRunConf));
+            totalWorkers++;
+        }
     }
 
     if (config.workers.bilibili) {
-        // TODO: Implement
+        logger.info("scheduler() Adding jobs for bilibili part...");
+        if (typeof config.intervals.bilibili.upcoming === "string") {
+            scheduleJob(config.intervals.bilibili.upcoming, async () => await Tasks.handleB2Feeds(skipRunConf));
+            totalWorkers++;
+        }
+        if (typeof config.intervals.bilibili.live === "string") {
+            scheduleJob(config.intervals.bilibili.live, async () => await Tasks.handleB2Live(skipRunConf));
+            totalWorkers++;
+        }
+        if (typeof config.intervals.bilibili.channels === "string") {
+            scheduleJob(config.intervals.bilibili.channels, async () => await Tasks.handleB2Channel(skipRunConf));
+            totalWorkers++;
+        }
     }
 
     if (config.workers.twitch && !emptyData(config.twitch.client_id) && !emptyData(config.twitch.client_secret)) {
@@ -64,15 +87,26 @@ function emptyData(t: any) {
         let ttvHelix = new TwitchHelix(config.twitch.client_id, config.twitch.client_secret);
 
         logger.info("scheduler() Adding jobs for twitch part...");
-        scheduleJob(config.intervals.twitch.live, async () => await Tasks.handleTTVLive(ttvHelix, skipRunConf));
-        scheduleJob(config.intervals.twitch.channels, async () => await Tasks.handleTTVChannel(ttvHelix, skipRunConf));
-        totalRun += 2;
+        if (typeof config.intervals.twitch.live === "string") {
+            scheduleJob(config.intervals.twitch.live, async () => await Tasks.handleTTVLive(ttvHelix, skipRunConf));
+            totalWorkers++;
+        }
+        if (typeof config.intervals.twitch.channels === "string") {
+            scheduleJob(config.intervals.twitch.channels, async () => await Tasks.handleTTVChannel(ttvHelix, skipRunConf));
+            totalWorkers++;
+        }
     }
 
     if (config.workers.twitcasting) {
         logger.info("scheduler() Adding jobs for twitcasting part...");
-        scheduleJob(config.intervals.twitcasting.live, async () => await Tasks.handleTWCastLive(skipRunConf));
-        scheduleJob(config.intervals.twitcasting.channels, async () => await Tasks.handleTWCastChannel(skipRunConf));
-        totalRun += 2;
+        if (typeof config.intervals.twitcasting.live === "string") {
+            scheduleJob(config.intervals.twitcasting.live, async () => await Tasks.handleTWCastLive(skipRunConf));
+            totalWorkers++;
+        }
+        if (typeof config.intervals.twitcasting.channels === "string") {
+            scheduleJob(config.intervals.twitcasting.channels, async () => await Tasks.handleTWCastChannel(skipRunConf));
+            totalWorkers++;
+        }
     }
+    logger.info(`scheduler() running ${totalWorkers} workers...`);
 })();
