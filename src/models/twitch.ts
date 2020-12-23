@@ -1,12 +1,16 @@
-import { createSchema, Type, typedModel, ExtractDoc, ExtractProps } from "ts-mongoose";
+import { createSchema, Type, typedModel, ExtractProps } from "ts-mongoose";
 
 const TwitchVideoSchema = createSchema(
     {
         id: Type.string({ required: true }),
         title: Type.string({required: true}),
         status: Type.string({required: true}),
-        startTime: Type.number(),
-        endTime: Type.number(),
+        timedata: Type.object({required: true}).of({
+            startTime: Type.number(),
+            endTime: Type.number(),
+            duration: Type.number(),
+            publishedAt: Type.string(),
+        }),
         viewers: Type.number(),
         peakViewers: Type.number(),
         channel_uuid: Type.string({required: true}),
@@ -27,6 +31,12 @@ const TwitchChannelSchema = createSchema(
         followerCount: Type.number(),
         viewCount: Type.number(),
         videoCount: Type.number(),
+        history: Type.array().of({
+            timestamp: Type.number({required: true}),
+            followerCount: Type.number(),
+            viewCount: Type.number(),
+            videoCount: Type.number()
+        }),
         thumbnail: Type.string({required: true}),
         group: Type.string({required: true}),
         platform: Type.string({required: true}),

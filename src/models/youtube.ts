@@ -1,12 +1,20 @@
-import { createSchema, Type, typedModel, ExtractDoc, ExtractProps } from "ts-mongoose";
+import { createSchema, Type, typedModel, ExtractProps } from "ts-mongoose";
+
+const LiveStatus = ["live", "upcoming", "past", "video"] as const;
 
 const YoutubeVideoSchema = createSchema(
     {
         id: Type.string({ required: true }),
         title: Type.string({required: true}),
-        status: Type.string({required: true}),
-        startTime: Type.number(),
-        endTime: Type.number(),
+        status: Type.string({required: true, enum: LiveStatus}),
+        timedata: Type.object({required: true}).of({
+            scheduledStartTime: Type.number(),
+            startTime: Type.number(),
+            endTime: Type.number(),
+            lateTime: Type.number(),
+            duration: Type.number(),
+            publishedAt: Type.string(),
+        }),
         viewers: Type.number(),
         peakViewers: Type.number(),
         channel_id: Type.string({required: true}),
@@ -27,6 +35,12 @@ const YoutubeChannelSchema = createSchema(
         viewCount: Type.number(),
         videoCount: Type.number(),
         thumbnail: Type.string({required: true}),
+        history: Type.array().of({
+            timestamp: Type.number({required: true}),
+            subscriberCount: Type.number(),
+            viewCount: Type.number(),
+            videoCount: Type.number()
+        }),
         group: Type.string({required: true}),
         platform: Type.string({required: true}),
     }
