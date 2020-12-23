@@ -203,6 +203,8 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, skipRunData: 
             if (typeof durationTotal === "string") {
                 if (!iso86010S.includes(durationTotal)) {
                     is_premiere = true;
+                } else {
+                    is_premiere = false;
                 }
             }
         }
@@ -390,7 +392,7 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
 
         // check if premiere
         let is_premiere = _.get(old_data, "is_premiere", undefined);
-        if (["live", "upcoming"].includes(video_type) && typeof is_premiere !== "undefined") {
+        if (["live", "upcoming"].includes(video_type) && isNone(is_premiere)) {
             // https://en.wikipedia.org/wiki/ISO_8601#Durations
             // Youtube themselves decided to use P0D if there's no duration
             let iso86010S = ["P0D", "PT0S"];
@@ -398,6 +400,8 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
             if (typeof durationTotal === "string") {
                 if (!iso86010S.includes(durationTotal)) {
                     is_premiere = true;
+                } else {
+                    is_premiere = false;
                 }
             }
         }
