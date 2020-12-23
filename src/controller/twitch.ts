@@ -36,14 +36,21 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, skipRunData: SkipRun
         let viewers = result["viewer_count"];
         let peakViewers = viewers;
 
+        let timeMapping = {
+            startTime: start_time,
+            endTime: null,
+            duration: null,
+            publishedAt: result["started_at"],
+        }
+
         let old_mappings = _.find(video_sets, {"id": result["id"]});
         if (isNone(old_mappings)) {
-            let insertNew = {
+            let insertNew: TTVVideoProps = {
                 "id": result["id"],
                 "title": result["title"],
                 "status": "live",
-                "startTime": start_time,
-                "endTime": null,
+                // @ts-ignore
+                "timedata": timeMapping,
                 // @ts-ignore
                 "channel_id": channel_map["id"],
                 "channel_uuid": result["user_id"],
@@ -60,12 +67,12 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, skipRunData: SkipRun
             if (viewers > peakViewers) {
                 peakViewers = viewers;
             }
-            let updateOld = {
+            let updateOld: TTVVideoProps = {
                 "id": result["id"],
                 "title": result["title"],
                 "status": "live",
-                "startTime": start_time,
-                "endTime": null,
+                // @ts-ignore
+                "timedata": timeMapping,
                 "viewers": viewers,
                 "peakViewers": peakViewers,
                 "thumbnail": thumbnail,
@@ -75,16 +82,25 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, skipRunData: SkipRun
     }
 
     logger.info("ttvLiveHeartbeat() checking old data for moving it to past streams...");
-    let oldData = video_sets.map((oldRes) => {
+    // @ts-ignore
+    let oldData: TTVVideoProps[] = video_sets.map((oldRes) => {
         let updMap = _.find(updateData, {"id": oldRes["id"]});
         if (!isNone(updMap)) {
             return [];
         }
+        let endTime = moment.tz("UTC").unix();
+        // @ts-ignore
+        let publishedAt = moment.tz(oldRes["timedata"]["startTime"] * 1000, "UTC").format();
         return {
             "id": oldRes["id"],
             "status": "past",
-            "startTime": oldRes["startTime"],
-            "endTime": moment.tz("UTC").unix(),
+            "timedata": {
+                "startTime": oldRes["timedata"]["startTime"],
+                "endTime": endTime,
+                // @ts-ignore
+                "duration": endTime - oldRes["startTime"],
+                "publishedAt": publishedAt,
+            }
         };
     });
     // @ts-ignore
@@ -132,12 +148,32 @@ export async function ttvChannelsStats(ttvAPI: TwitchHelix, skipRunData: SkipRun
     let twitch_results: any[] = await ttvAPI.fetchChannels(channelIds);
     logger.info("ttvChannelsStats() parsing API results...");
     let updateData = [];
+    let currentTimestamp = moment.tz("UTC").unix();
     for (let i = 0; i < twitch_results.length; i++) {
         let result = twitch_results[i];
         logger.info(`ttvChannelsStats() parsing and fetching followers and videos ${result["login"]}`);
         let followersData = await ttvAPI.fetchChannelFollowers(result["id"]);
         let videosData = (await ttvAPI.fetchChannelVideos(result["id"])).filter(vid => vid["viewable"] === "public");
-        let mappedUpdate = {
+        let historyData: any[] = [];
+        let oldData = _.find(channels, {"id": result["login"]});
+        if (typeof oldData !== "undefined") {
+            // concat old set
+            let oldHistoryData = _.get(oldData, "history", []);
+            if (oldHistoryData.length === 0) {
+                logger.error(`ttvChannelsStats() missing history data in old data for ID ${result["login"]}`);
+            } else {
+                historyData = _.concat(historyData, oldHistoryData);
+            }
+        }
+
+        historyData.push({
+            timestamp: currentTimestamp,
+            followerCount: followersData["total"],
+            viewCount: result["view_count"],
+            videoCount: videosData.length,
+        })
+        // @ts-ignore
+        let mappedUpdate: TTVChannelProps = {
             "id": result["login"],
             "name": result["display_name"],
             "description": result["description"],
@@ -145,6 +181,7 @@ export async function ttvChannelsStats(ttvAPI: TwitchHelix, skipRunData: SkipRun
             "followerCount": followersData["total"],
             "viewCount": result["view_count"],
             "videoCount": videosData.length,
+            "history": historyData
         }
         updateData.push(mappedUpdate);
     }

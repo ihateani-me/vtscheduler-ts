@@ -2,10 +2,10 @@ import axios from "axios";
 import { YoutubeChannel, YoutubeVideo, YTChannelProps, YTVideoProps } from "../models/youtube";
 import { logger } from "../utils/logger";
 import { version as vt_version } from "../../package.json";
-import _ from "lodash";
+import _, { toArray } from "lodash";
 import { YTRotatingAPIKey } from "../utils/ytkey_rotator";
 import { fallbackNaN, filterEmpty, isNone } from "../utils/swissknife";
-import moment from "moment-timezone";
+import moment, { localeData } from "moment-timezone";
 import { SkipRunConfig } from "../models";
 import { resolveDelayCrawlerPromises } from "../utils/crawler";
 
@@ -175,17 +175,34 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, skipRunData: 
         let channel_id = snippets["channelId"];
         let title = snippets["title"];
         let group = res_item["groupData"];
+        let videoStats = _.get(res_item, "statistics", {});
+
+        let publishedAt = snippets["publishedAt"];
 
         let start_time = null;
         let ended_time = null;
+        let scheduled_start_time = null;
         if (_.has(livedetails, "scheduledStartTime")) {
-            start_time = moment.tz(livedetails["scheduledStartTime"], "UTC").unix();
+            scheduled_start_time = moment.tz(livedetails["scheduledStartTime"], "UTC").unix();
         } else if (_.has(livedetails, "actualStartTime")) {
             start_time = moment.tz(livedetails["actualStartTime"], "UTC").unix();
+            scheduled_start_time = moment.tz(livedetails["scheduledStartTime"], "UTC").unix();
         }
         if (_.has(livedetails, "actualEndTime")) {
             ended_time = moment.tz(livedetails["actualEndTime"], "UTC").unix();
             video_type = "past";
+        }
+
+        let duration = null;
+        let lateness = null;
+        if (start_time && ended_time) {
+            duration = ended_time - start_time;
+        }
+        if (start_time && scheduled_start_time) {
+            lateness = start_time - scheduled_start_time;
+        }
+        if (video_type === "upcoming") {
+            start_time = scheduled_start_time;
         }
 
         let viewers = null,
@@ -200,10 +217,19 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, skipRunData: 
             id: video_id,
             title: title,
             status: video_type,
-            // @ts-ignore
-            startTime: start_time,
-            // @ts-ignore
-            endTime: ended_time,
+            timedata: {
+                publishedAt: publishedAt,
+                // @ts-ignore
+                startTime: start_time,
+                // @ts-ignore
+                endTime: ended_time,
+                // @ts-ignore
+                scheduledStartTime: scheduled_start_time,
+                // @ts-ignore
+                lateTime: lateness,
+                // @ts-ignore
+                duration: duration
+            },
             viewers: viewers,
             peakViewers: peak_viewers,
             channel_id: channel_id,
@@ -296,16 +322,33 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
 
         let title = snippets["title"];
 
+        let publishedAt = snippets["publishedAt"];
+
         let start_time = null;
         let ended_time = null;
+        let scheduled_start_time = null;
         if (_.has(livedetails, "scheduledStartTime")) {
-            start_time = moment.tz(livedetails["scheduledStartTime"], "UTC").unix();
-        } else if (_.has(livedetails, "actualStartTime")) {
+            scheduled_start_time = moment.tz(livedetails["scheduledStartTime"], "UTC").unix();
+        }
+        if (_.has(livedetails, "actualStartTime")) {
             start_time = moment.tz(livedetails["actualStartTime"], "UTC").unix();
+            scheduled_start_time = moment.tz(livedetails["scheduledStartTime"], "UTC").unix();
         }
         if (_.has(livedetails, "actualEndTime")) {
             ended_time = moment.tz(livedetails["actualEndTime"], "UTC").unix();
             video_type = "past";
+        }
+
+        let duration = null;
+        let lateness = null;
+        if (start_time && ended_time) {
+            duration = ended_time - start_time;
+        }
+        if (start_time && scheduled_start_time) {
+            lateness = start_time - scheduled_start_time;
+        }
+        if (video_type === "upcoming") {
+            start_time = scheduled_start_time;
         }
 
         let viewers = null;
@@ -335,10 +378,19 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
             id: video_id,
             title: title,
             status: video_type,
-            // @ts-ignore
-            startTime: start_time,
-            // @ts-ignore
-            endTime: ended_time,
+            timedata: {
+                publishedAt: publishedAt,
+                // @ts-ignore
+                startTime: start_time,
+                // @ts-ignore
+                endTime: ended_time,
+                // @ts-ignore
+                scheduledStartTime: scheduled_start_time,
+                // @ts-ignore
+                lateTime: lateness,
+                // @ts-ignore
+                duration: duration
+            },
             viewers: viewers,
             peakViewers: new_peak,
             thumbnail: thumbs,
@@ -364,7 +416,13 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
             }
             idData["is_missing"] = true;
             idData["status"] = "past";
-            idData["endTime"] = targetEndTime;
+            idData["timedata"]["endTime"] = targetEndTime;
+            if (idData["timedata"]["startTime"]) {
+                idData["timedata"]["duration"] = targetEndTime - idData["timedata"]["startTime"];
+            }
+            if (idData["timedata"]["startTime"] && idData["timedata"]["scheduledStartTime"]) {
+                idData["timedata"]["lateTime"] = idData["timedata"]["startTime"] - idData["timedata"]["scheduledStartTime"];
+            }
             filteredDifferences.push(idData);
         }
         to_be_committed = _.concat(filteredDifferences);
@@ -435,6 +493,7 @@ export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey, skipRunDat
 
     items_data = _.flattenDeep(items_data);
     logger.info(`youtubeChannelsStats() preparing update...`);
+    let currentTimestamp = moment.tz("UTC").unix();
     const to_be_committed = items_data.map((res_item) => {
         let ch_id = res_item["id"];
         let snippets: AnyDict = res_item["snippet"];
@@ -448,6 +507,8 @@ export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey, skipRunDat
             viewCount = 0,
             videoCount = 0;
 
+        let historyData: any[] = [];
+
         if (_.has(statistics, "subscriberCount")) {
             subsCount = fallbackNaN(parseInt, statistics["subscriberCount"], statistics["subscriberCount"]);
         }
@@ -457,6 +518,23 @@ export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey, skipRunDat
         if (_.has(statistics, "videoCount")) {
             videoCount = fallbackNaN(parseInt, statistics["videoCount"], statistics["videoCount"]);
         }
+        let oldData = _.find(channels_data, {"id": ch_id});
+        if (typeof oldData !== "undefined") {
+            // concat old set
+            let oldHistoryData = _.get(oldData, "history", []);
+            if (oldHistoryData.length === 0) {
+                logger.error(`youtubeChannelStats() missing history data in old data for ID ${ch_id}`);
+            } else {
+                historyData = _.concat(historyData, oldHistoryData);
+            }
+        }
+
+        historyData.push({
+            timestamp: currentTimestamp,
+            subscriberCount: subsCount,
+            viewCount: viewCount,
+            videoCount: videoCount
+        })
 
         // @ts-ignore
         let finalData: YTChannelProps = {
@@ -467,6 +545,7 @@ export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey, skipRunDat
             subscriberCount: subsCount,
             viewCount: viewCount,
             videoCount: videoCount,
+            history: historyData,
         }
         return finalData;
     })

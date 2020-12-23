@@ -92,25 +92,38 @@ export async function twcastLiveHeartbeat(skipRunData: SkipRunConfig) {
             tw_title = `Radio Live #${tw_sid}`;
         }
         let tw_start_time = Math.round(current_time - tw_time_passed);
+        let publishedAt = moment.tz(tw_start_time * 1000, "UTC").format();
 
         let old_mappings = _.find(video_sets, {"id": tw_sid});
         if (!isNone(old_mappings)) {
-            let mappedUpdate = {
+            let mappedUpdate: TWCastVideoProps = {
                 "id": tw_sid,
                 "title": tw_title,
-                "startTime": tw_start_time,
-                "endTime": null,
+                "timedata": {
+                    publishedAt: publishedAt,
+                    startTime: tw_start_time,
+                    // @ts-ignore
+                    endTime: null,
+                    // @ts-ignore
+                    duration: null,
+                },
                 "viewers": tw_current_viewers,
                 "peakViewers": tw_max_viewers,
                 "thumbnail": tw_thumbnail,
             }
             updateData.push(mappedUpdate)
         } else {
-            let insertUpdate = {
+            let insertUpdate: TWCastVideoProps = {
                 "id": tw_sid,
                 "title": tw_title,
-                "startTime": tw_start_time,
-                "endTime": null,
+                "timedata": {
+                    publishedAt: publishedAt,
+                    startTime: tw_start_time,
+                    // @ts-ignore
+                    endTime: null,
+                    // @ts-ignore
+                    duration: null,
+                },
                 "status": "live",
                 "viewers": tw_current_viewers,
                 "peakViewers": tw_max_viewers,
@@ -124,16 +137,25 @@ export async function twcastLiveHeartbeat(skipRunData: SkipRunConfig) {
     }
 
     logger.info("twcastLiveHeartbeat() checking old data for moving it to past streams...");
-    let oldData = video_sets.map((oldRes) => {
+    // @ts-ignore
+    let oldData: TWCastVideoProps[] = video_sets.map((oldRes) => {
         let updMap = _.find(updateData, {"id": oldRes["id"]});
         if (!isNone(updMap)) {
             return [];
         }
+        let endTime = moment.tz("UTC").unix();
+        // @ts-ignore
+        let publishedAt = moment.tz(oldRes["timedata"]["startTime"] * 1000, "UTC").format();
         return {
             "id": oldRes["id"],
             "status": "past",
-            "startTime": oldRes["startTime"],
-            "endTime": moment.tz("UTC").unix(),
+            "timedata": {
+                "startTime": oldRes["timedata"]["startTime"],
+                "endTime": endTime,
+                // @ts-ignore
+                "duration": endTime - oldRes["startTime"],
+                "publishedAt": publishedAt,
+            }
         };
     });
     // @ts-ignore
@@ -200,6 +222,7 @@ export async function twcastChannelsStats(skipRunData: SkipRunConfig) {
     logger.info("twcastChannelsStats() executing API requests...");
     const collectedChannels = (await Promise.all(wrappedPromises)).filter(res => Object.keys(res).length > 0);
     let updateData = [];
+    let currentTimestamp = moment.tz("UTC").unix();
     for (let i = 0; i < collectedChannels.length; i++) {
         let result = collectedChannels[i];
         if (!_.has(result, "user")) {
@@ -215,13 +238,34 @@ export async function twcastChannelsStats(skipRunData: SkipRunConfig) {
         if (profile_img.startsWith("//")) {
             profile_img = "https:" + profile_img
         }
-        let mappedUpdate = {
+
+        let historyData: any[] = [];
+        let oldData = _.find(channels, {"id": udata["id"]});
+        if (typeof oldData !== "undefined") {
+            // concat old set
+            let oldHistoryData = _.get(oldData, "history", []);
+            if (oldHistoryData.length === 0) {
+                logger.error(`twcastChannelsStats() missing history data in old data for ID ${udata["id"]}`);
+            } else {
+                historyData = _.concat(historyData, oldHistoryData);
+            }
+        }
+
+        historyData.push({
+            timestamp: currentTimestamp,
+            followerCount: udata["backerCount"],
+            level: udata["level"],
+        })
+
+        // @ts-ignore
+        let mappedUpdate: TWCastChannelProps = {
             "id": udata["id"],
             "name": udata["name"],
             "description": desc,
             "thumbnail": profile_img,
             "followerCount": udata["backerCount"],
             "level": udata["level"],
+            "history": historyData
         }
         updateData.push(mappedUpdate);
     }
