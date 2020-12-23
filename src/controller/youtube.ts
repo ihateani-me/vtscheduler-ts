@@ -120,7 +120,7 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, skipRunData: 
     const video_to_fetch = chunkedVideoFetch.map((videos, idx) => (
         session.get("https://www.googleapis.com/youtube/v3/videos", {
             params: {
-                part: "snippet,liveStreamingDetails",
+                part: "snippet,liveStreamingDetails,contentDetails",
                 id: _.join(_.map(videos, "video_id"), ","),
                 maxResults: 50,
                 key: apiKeys.get()
@@ -175,7 +175,7 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, skipRunData: 
         let channel_id = snippets["channelId"];
         let title = snippets["title"];
         let group = res_item["groupData"];
-        let videoStats = _.get(res_item, "statistics", {});
+        let contentDetails = _.get(res_item, "contentDetails", {});
 
         let publishedAt = snippets["publishedAt"];
 
@@ -191,6 +191,20 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, skipRunData: 
         if (_.has(livedetails, "actualEndTime")) {
             ended_time = moment.tz(livedetails["actualEndTime"], "UTC").unix();
             video_type = "past";
+        }
+
+        // check if premiere
+        let is_premiere = false;
+        if (["live", "upcoming"].includes(video_type)) {
+            // https://en.wikipedia.org/wiki/ISO_8601#Durations
+            // Youtube themselves decided to use P0D if there's no duration
+            let iso86010S = ["P0D", "PT0S"];
+            let durationTotal = _.get(contentDetails, "duration", undefined);
+            if (typeof durationTotal === "string") {
+                if (iso86010S.includes(durationTotal)) {
+                    is_premiere = true;
+                }
+            }
         }
 
         let duration = null;
@@ -237,6 +251,7 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, skipRunData: 
             group: group,
             platform: "youtube",
             is_missing: false,
+            is_premiere: is_premiere,
         }
         return finalData;
     })
@@ -270,7 +285,7 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
     const items_data_promises = chunked_video_set.map((chunks, idx) => (
         session.get("https://www.googleapis.com/youtube/v3/videos", {
             params: {
-                part: "snippet,liveStreamingDetails",
+                part: "snippet,liveStreamingDetails,contentDetails",
                 id: _.join(_.map(chunks, "id"), ","),
                 maxResults: 50,
                 key: apiKeys.get()
@@ -323,6 +338,7 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
         let title = snippets["title"];
 
         let publishedAt = snippets["publishedAt"];
+        let contentDetails = _.get(res_item, "contentDetails", {});
 
         let start_time = null;
         let ended_time = null;
@@ -372,6 +388,20 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
             new_peak = null;
         }
 
+        // check if premiere
+        let is_premiere = _.get(old_data, "is_premiere", undefined);
+        if (["live", "upcoming"].includes(video_type) && typeof is_premiere !== "undefined") {
+            // https://en.wikipedia.org/wiki/ISO_8601#Durations
+            // Youtube themselves decided to use P0D if there's no duration
+            let iso86010S = ["P0D", "PT0S"];
+            let durationTotal = _.get(contentDetails, "duration", undefined);
+            if (typeof durationTotal === "string") {
+                if (iso86010S.includes(durationTotal)) {
+                    is_premiere = true;
+                }
+            }
+        }
+
         let thumbs = getBestThumbnail(snippets["thumbnails"], video_id);
 
         let finalData: YTVideoProps = {
@@ -395,6 +425,7 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
             peakViewers: new_peak,
             thumbnail: thumbs,
             is_missing: false,
+            is_premiere: is_premiere,
         }
         return finalData;
     })
