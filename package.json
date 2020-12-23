@@ -1,6 +1,6 @@
 {
   "name": "vtscheduler-ts",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A VTuber live scheduler, Backend for ihaapi-ts",
   "main": "src/index.ts",
   "scripts": {
@@ -36,6 +36,7 @@
   },
   "dependencies": {
     "axios": "^0.21.0",
+    "cron-parser": "^2.18.0",
     "lodash": "^4.17.20",
     "moment-timezone": "^0.5.32",
     "mongoose": "^5.11.8",
