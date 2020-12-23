@@ -49,19 +49,19 @@ function emptyData(t: any) {
 
         logger.info("scheduler() Adding jobs for youtube part...");
         if (typeof config.intervals.youtube.live === "string") {
-            scheduleJob(config.intervals.youtube.live, async () => await Tasks.handleYTLive(ytKeysAPI, skipRunConf));
+            scheduleJob({rule: config.intervals.youtube.live, tz: "Asia/Tokyo"}, async () => Tasks.handleYTLive(ytKeysAPI, skipRunConf));
             totalWorkers++;
         }
         if (typeof config.intervals.youtube.feeds === "string") {
-            scheduleJob(config.intervals.youtube.feeds, async () => await Tasks.handleYTFeeds(ytKeysAPI, skipRunConf));
+            scheduleJob({rule: config.intervals.youtube.feeds, tz: "Asia/Tokyo"}, async () => Tasks.handleYTFeeds(ytKeysAPI, skipRunConf));
             totalWorkers++;
         }
         if (typeof config.intervals.youtube.channels === "string") {
-            scheduleJob(config.intervals.youtube.channels, async () => await Tasks.handleYTChannel(ytKeysAPI, skipRunConf));
+            scheduleJob({rule: config.intervals.youtube.channels, tz: "Asia/Tokyo"}, async () => Tasks.handleYTChannel(ytKeysAPI, skipRunConf));
             totalWorkers++;
         }
         if (typeof config.intervals.youtube.missing_check === "string") {
-            scheduleJob(config.intervals.youtube.missing_check, async () => await Tasks.handleYTMissing(ytKeysAPI, skipRunConf));
+            scheduleJob({rule: config.intervals.youtube.missing_check, tz: "Asia/Tokyo"}, async () => Tasks.handleYTMissing(ytKeysAPI, skipRunConf));
             totalWorkers++;
         }
     }
@@ -88,11 +88,11 @@ function emptyData(t: any) {
 
         logger.info("scheduler() Adding jobs for twitch part...");
         if (typeof config.intervals.twitch.live === "string") {
-            scheduleJob(config.intervals.twitch.live, async () => await Tasks.handleTTVLive(ttvHelix, skipRunConf));
+            scheduleJob({rule: config.intervals.twitch.live, tz: "Asia/Tokyo"}, async () => Tasks.handleTTVLive(ttvHelix, skipRunConf));
             totalWorkers++;
         }
         if (typeof config.intervals.twitch.channels === "string") {
-            scheduleJob(config.intervals.twitch.channels, async () => await Tasks.handleTTVChannel(ttvHelix, skipRunConf));
+            scheduleJob({rule: config.intervals.twitch.channels, tz: "Asia/Tokyo"}, async () => Tasks.handleTTVChannel(ttvHelix, skipRunConf));
             totalWorkers++;
         }
     }
@@ -100,11 +100,11 @@ function emptyData(t: any) {
     if (config.workers.twitcasting) {
         logger.info("scheduler() Adding jobs for twitcasting part...");
         if (typeof config.intervals.twitcasting.live === "string") {
-            scheduleJob(config.intervals.twitcasting.live, async () => await Tasks.handleTWCastLive(skipRunConf));
+            scheduleJob({rule: config.intervals.twitcasting.live, tz: "Asia/Tokyo"}, async () => Tasks.handleTWCastLive(skipRunConf));
             totalWorkers++;
         }
         if (typeof config.intervals.twitcasting.channels === "string") {
-            scheduleJob(config.intervals.twitcasting.channels, async () => await Tasks.handleTWCastChannel(skipRunConf));
+            scheduleJob({rule: config.intervals.twitcasting.channels, tz: "Asia/Tokyo"}, async () => Tasks.handleTWCastChannel(skipRunConf));
             totalWorkers++;
         }
     }
