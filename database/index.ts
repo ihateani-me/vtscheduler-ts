@@ -10,14 +10,13 @@ import { DatasetModel, VTuberModel } from './dataset/model';
 import _ from 'lodash';
 import { bilibiliChannelsDataset, ttvChannelDataset, twcastChannelsDataset, youtubeChannelDataset } from './controller';
 import { TwitchHelix } from '../src/utils/twitchapi';
-import { isNone } from '../src/utils/swissknife';
 
 let mongouri = config.mongodb.uri;
 if (mongouri.endsWith("/")) {
     mongouri = mongouri.slice(0, -1);
 }
 
-mongoose.connect(`${mongouri}/${config.mongodb.dbname}`, {useNewUrlParser: true, useUnifiedTopology: true});
+mongoose.connect(`${mongouri}/${config.mongodb.dbname}`, {useNewUrlParser: true, useUnifiedTopology: true, useFindAndModify: false});
 
 export function menuController() {
     console.clear();
