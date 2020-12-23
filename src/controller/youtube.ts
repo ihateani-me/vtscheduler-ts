@@ -201,7 +201,7 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, skipRunData: 
             let iso86010S = ["P0D", "PT0S"];
             let durationTotal = _.get(contentDetails, "duration", undefined);
             if (typeof durationTotal === "string") {
-                if (iso86010S.includes(durationTotal)) {
+                if (!iso86010S.includes(durationTotal)) {
                     is_premiere = true;
                 }
             }
@@ -396,7 +396,7 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
             let iso86010S = ["P0D", "PT0S"];
             let durationTotal = _.get(contentDetails, "duration", undefined);
             if (typeof durationTotal === "string") {
-                if (iso86010S.includes(durationTotal)) {
+                if (!iso86010S.includes(durationTotal)) {
                     is_premiere = true;
                 }
             }
