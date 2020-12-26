@@ -369,29 +369,24 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
             start_time = scheduled_start_time;
         }
 
-        let viewers = null;
-        if (_.has(livedetails, "concurrentViewers")) {
-            viewers = fallbackNaN(parseInt, livedetails["concurrentViewers"], livedetails["concurrentViewers"]);
+        let oldData = _.find(video_sets, { "id": video_id });
+        let currentViewers = _.get(oldData, "viewers", null);
+        let currentPeakViewers = _.get(oldData, "peakViewers", null);
+        let viewersData = _.get(livedetails, "concurrentViewers", undefined);
+        if (typeof viewersData !== "undefined") {
+            viewersData = fallbackNaN(parseInt, viewersData, viewersData);
+            currentViewers = viewersData;
         }
-
-        let old_data = _.find(video_sets, { "id": video_id });
-        let old_peak_viewers = old_data?.peakViewers;
-        let new_peak: number;
-        if (typeof old_peak_viewers === "number" && typeof viewers === "number") {
-            if (viewers > old_peak_viewers) {
-                new_peak = viewers;
-            } else {
-                new_peak = old_peak_viewers;
+        if (!_.isNull(currentPeakViewers) && !_.isNull(currentViewers)) {
+            if (currentViewers > currentPeakViewers) {
+                currentPeakViewers = currentViewers
             }
-        } else if (typeof viewers === "number") {
-            new_peak = viewers;
-        } else {
-            // @ts-ignore
-            new_peak = null;
+        } else if (_.isNull(currentPeakViewers) && !_.isNull(currentViewers)) {
+            currentPeakViewers = currentViewers;
         }
 
         // check if premiere
-        let is_premiere = _.get(old_data, "is_premiere", undefined);
+        let is_premiere = _.get(oldData, "is_premiere", undefined);
         if (["live", "upcoming"].includes(video_type) && isNone(is_premiere)) {
             // https://en.wikipedia.org/wiki/ISO_8601#Durations
             // Youtube themselves decided to use P0D if there's no duration
@@ -425,8 +420,10 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
                 // @ts-ignore
                 duration: duration
             },
-            viewers: viewers,
-            peakViewers: new_peak,
+            // @ts-ignore
+            viewers: currentViewers,
+            // @ts-ignore
+            peakViewers: currentPeakViewers,
             thumbnail: thumbs,
             is_missing: false,
             is_premiere: is_premiere,
