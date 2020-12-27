@@ -338,8 +338,8 @@ export async function bilibiliChannelsStats(skipRunData: SkipRunConfig) {
             continue;
         }
 
-        let infoData = assignedData["info"]?.res;
-        let cardData = assignedData["card"]?.res;
+        let infoData = _.get(_.get(assignedData, "info", {}), "res", {});
+        let cardData = _.get(_.get(assignedData, "card", {}), "res", {});
 
         let updatedData = {
             "id": mid,
