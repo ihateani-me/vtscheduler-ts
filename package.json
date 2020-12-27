@@ -1,6 +1,6 @@
 {
   "name": "vtscheduler-ts",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A VTuber live scheduler, Backend for ihaapi-ts",
   "main": "src/index.ts",
   "scripts": {
