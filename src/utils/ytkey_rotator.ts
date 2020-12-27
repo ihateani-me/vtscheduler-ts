@@ -7,6 +7,7 @@ export class YTRotatingAPIKey {
     private count: number;
     private rate: number;
     private next_rotate: number;
+    private lastForced: number;
 
     /**
      * A class to rotate API key based on rotation rate
@@ -22,6 +23,13 @@ export class YTRotatingAPIKey {
         this.count = this.api_keys.length;
         this.rate = minute_rate * 60;
         this.next_rotate = moment.tz("UTC").unix() + this.rate;
+
+        this.lastForced = -1;
+    }
+
+    private rotate() {
+        // @ts-ignore
+        this.api_keys.push(this.api_keys.shift());
     }
 
     /**
@@ -52,8 +60,7 @@ export class YTRotatingAPIKey {
             logger.info("[YTRotatingAPI] Rotating API key...");
             this.next_rotate = current.unix() + this.rate;
             logger.info(`[YTRotatingAPI] Next API rotate: ${ctext}`);
-            // @ts-expect-error
-            this.api_keys.push(this.api_keys.shift());
+            this.rotate();
         }
     }
 
@@ -68,5 +75,20 @@ export class YTRotatingAPIKey {
             this.check_time();
         }
         return this.api_keys[0];
+    }
+
+    forceRotate(): void {
+        if (this.lastForced === -1) {
+            this.lastForced = moment.tz("UTC").unix();
+            this.rotate();
+            return;
+        }
+        // 15 seconds inverval guard
+        let current = moment.tz("UTC").unix() - 15;
+        if (current > this.lastForced) {
+            this.lastForced = current + 15;
+            this.rotate();
+            return;
+        }
     }
 }

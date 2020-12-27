@@ -1,11 +1,11 @@
-import axios from "axios";
+import axios, { AxiosInstance } from "axios";
 import { YoutubeChannel, YoutubeVideo, YTChannelProps, YTVideoProps } from "../models/youtube";
 import { logger } from "../utils/logger";
 import { version as vt_version } from "../../package.json";
-import _, { toArray } from "lodash";
+import _ from "lodash";
 import { YTRotatingAPIKey } from "../utils/ytkey_rotator";
-import { fallbackNaN, filterEmpty, isNone } from "../utils/swissknife";
-import moment, { localeData } from "moment-timezone";
+import { fallbackNaN, isNone } from "../utils/swissknife";
+import moment from "moment-timezone";
 import { SkipRunConfig } from "../models";
 import { resolveDelayCrawlerPromises } from "../utils/crawler";
 import { ViewersData } from "../models/extras";
@@ -39,6 +39,68 @@ function getBestThumbnail(thumbnails: any, video_id: string): string {
         return thumbnails["default"]["url"];
     }
     return `https://i.ytimg.com/vi/${video_id}/maxresdefault.jpg`;
+}
+
+function checkForErrorsAndRotate(apiReponses: any, apiKeys: YTRotatingAPIKey) {
+    let errors = _.get(apiReponses, "error", undefined);
+    if (typeof errors === "undefined") {
+        return false;
+    }
+    let errorsData: any[] = _.get(errors, "errors", []);
+    if (errorsData.length < 1) {
+        return false;
+    }
+    let firstErrors = errorsData[0];
+    let errorReason = _.get(firstErrors, "reason", "unknown");
+    if (errorReason === "rateLimitExceeded") {
+        apiKeys.forceRotate();
+    }
+    return true;
+}
+
+async function checkIfMembershipStream(session: AxiosInstance, apiKeys: YTRotatingAPIKey, liveChatId: string): Promise<boolean | null> {
+    let liveChatRequest = await session.get("https://youtube.googleapis.com/youtube/v3/liveChat/messages", {
+        params: {
+            "liveChatId": liveChatId,
+            "part": "id",
+            "maxResults": 1,
+            "key": apiKeys.get(),
+        },
+        responseType: "json"
+    }).catch((err) => {
+        if (err.response) {
+            // return response head
+            return err.response;
+        } else {
+            logger.error(`checkIfMembershipStream() request error occured when trying to fetch chat ID ${liveChatId}, ${err.message}`);
+            return undefined
+        }
+    })
+    if (typeof liveChatRequest === "undefined") {
+        return null;
+    }
+    let itemsData = _.get(liveChatRequest.data, "items", undefined);
+    if (typeof itemsData !== "undefined" || liveChatRequest.status === 200) {
+        return false;
+    }
+    let errors = _.get(liveChatRequest.data, "error", undefined);
+    if (typeof errors === "undefined" || liveChatRequest.status === 200) {
+        return false;
+    }
+    let errorsData: any[] = _.get(errors, "errors", []);
+    if (errorsData.length < 1) {
+        return false;
+    }
+    let firstErrors = errorsData[0];
+    let errorReason = _.get(firstErrors, "reason", "unknown");
+    if (errorReason === "rateLimitExceeded") {
+        apiKeys.forceRotate();
+        return null;
+    }
+    if (errorReason === "forbidden") {
+        return true;
+    }
+    return null;
 }
 
 export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, skipRunData: SkipRunConfig) {
@@ -130,6 +192,11 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, skipRunData: 
         })
             .then((result) => {
                 let yt_result = result.data;
+                let is_error = checkForErrorsAndRotate(yt_result, apiKeys);
+                if (is_error) {
+                    // problem occured, sent empty array like my mind.
+                    return [];
+                }
                 let items = yt_result["items"].map((res: { [x: string]: string | undefined; id: any; }) => {
                     let xml_res = _.find(videos, { "video_id": res.id });
                     // @ts-ignore
@@ -138,6 +205,12 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, skipRunData: 
                 })
                 return items;
             }).catch((err) => {
+                if (err.response) {
+                    let is_error = checkForErrorsAndRotate(err.response.data, apiKeys);
+                    if (is_error) {
+                        return [];
+                    }
+                }
                 logger.error(`youtubeVideoFeeds() failed to fetch videos info for chunk ${idx}, error: ${err.toString()}`);
                 return [];
             })
@@ -228,21 +301,6 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, skipRunData: 
             viewers = peak_viewers = fallbackNaN(parseInt, livedetails["concurrentViewers"], livedetails["concurrentViewers"]);
         }
 
-        if (video_type === "live") {
-            let viewNewData = {
-                "id": video_id,
-                "viewersData": [{
-                    "timestamp": moment.tz("UTC").unix(),
-                    "viewers": viewers
-                }],
-                "group": group,
-                "platform": "youtube"
-            }
-            await ViewersData.insertMany([viewNewData]).catch((err) => {
-                logger.error(`youtubeVideoFeeds() failed to create viewers data for ID ${video_id}, ${err.toString()}`);
-            })
-        }
-
         let thumbs = getBestThumbnail(snippets["thumbnails"], video_id);
 
         let finalData: YTVideoProps = {
@@ -271,6 +329,30 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, skipRunData: 
             is_missing: false,
             is_premiere: is_premiere,
         }
+
+        if (video_type === "live") {
+            let viewNewData = {
+                "id": video_id,
+                "viewersData": [{
+                    "timestamp": moment.tz("UTC").unix(),
+                    "viewers": viewers
+                }],
+                "group": group,
+                "platform": "youtube"
+            }
+            await ViewersData.insertMany([viewNewData]).catch((err) => {
+                logger.error(`youtubeVideoFeeds() failed to create viewers data for ID ${video_id}, ${err.toString()}`);
+            })
+
+            // check if it's a member stream by doing a very scuffed way to check :)
+            let liveChatId: string | undefined = _.get(livedetails, "activeLiveChatId", undefined);
+            if (typeof liveChatId !== "undefined") {
+                let isMembers = await checkIfMembershipStream(session, apiKeys, liveChatId);
+                // @ts-ignore
+                finalData["is_member"] = isMembers;
+            }
+        }
+
         return finalData;
     })
 
@@ -315,8 +397,19 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
         })
             .then((result) => {
                 let yt_result = result.data;
+                let is_error = checkForErrorsAndRotate(yt_result, apiKeys);
+                if (is_error) {
+                    // problem occured, sent empty array like my mind.
+                    return [];
+                }
                 return yt_result["items"];
             }).catch((err) => {
+                if (err.response) {
+                    let is_error = checkForErrorsAndRotate(err.response.data, apiKeys);
+                    if (is_error) {
+                        return [];
+                    }
+                }
                 logger.error(`youtubeLiveHeartbeat() failed to fetch videos info for chunk ${idx}, error: ${err.toString()}`);
                 return [];
             })
@@ -488,6 +581,20 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
             thumbnail: thumbs,
             is_missing: false,
             is_premiere: is_premiere,
+        }
+        if (video_type === "live") {
+            // check if it's a member stream by doing a very scuffed way to check :)
+            // this is even way more scuffed since I need to check if there's old data, and if it's already a boolean or not :)
+            let oldMembersData = _.get(oldData, "is_member", undefined);
+            if (typeof oldMembersData !== "boolean") {
+                // since the old data still doesn't contains or, set to `null`, do a check!
+                let liveChatId: string | undefined = _.get(livedetails, "activeLiveChatId", undefined);
+                if (typeof liveChatId !== "undefined") {
+                    let isMembers = await checkIfMembershipStream(session, apiKeys, liveChatId);
+                    // @ts-ignore
+                    finalData["is_member"] = isMembers;
+                }
+            }
         }
         if (video_type === "past") {
             let collectViewersData = await ViewersData.findOne({"id": {"$eq": video_id}, "platform": {"$eq": "youtube"}})

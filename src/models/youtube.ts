@@ -24,6 +24,7 @@ const YoutubeVideoSchema = createSchema(
         platform: Type.string({required: true}),
         is_missing: Type.boolean(),
         is_premiere: Type.boolean(),
+        is_member: Type.boolean(),
     }
 )
 
