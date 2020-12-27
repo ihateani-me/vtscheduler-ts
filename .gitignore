@@ -107,3 +107,10 @@ dist
 src/config.json
 src/skip_run.json
 build/
+
+# Only add Typescript inside the src/ and database/ folder
+# Excluding anything in the very top directory
+*.ts
+!src/**/*.ts
+!database/**/*.ts
+!**/*.d.ts
