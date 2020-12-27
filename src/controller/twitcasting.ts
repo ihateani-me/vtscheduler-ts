@@ -6,6 +6,7 @@ import { isNone } from "../utils/swissknife";
 import moment from "moment-timezone";
 import { SkipRunConfig } from "../models";
 import { resolveDelayCrawlerPromises } from "../utils/crawler";
+import { ViewersData } from "../models/extras";
 
 const CHROME_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36";
 
@@ -134,19 +135,64 @@ export async function twcastLiveHeartbeat(skipRunData: SkipRunConfig) {
             }
             insertData.push(insertUpdate);
         }
+
+        // checks for viewers data
+        let viewersDataArrays: {
+            timestamp: number;
+            viewers?: number | undefined;
+        }[] = [];
+        let currentViewersData = await ViewersData.findOne({"id": {"$eq": tw_sid}}).then((doc) => {
+            return doc;
+        }).catch((err) => {
+            return undefined;
+        });
+        if (typeof currentViewersData !== "undefined" && !_.isNull(currentViewersData)) {
+            viewersDataArrays = _.get(currentViewersData, "viewersData", []);
+            viewersDataArrays.push({
+                timestamp: moment.tz("UTC").unix(),
+                viewers: tw_current_viewers,
+            });
+            let viewUpdData = {
+                "id": currentViewersData["id"],
+                "viewersData": viewersDataArrays
+            }
+            try {
+                await ViewersData.updateOne({"id": {"$eq": currentViewersData["id"]}}, viewUpdData);
+            } catch (e) {
+                logger.error(`twcastLiveHeartbeat() Failed to update viewers data for ID ${result["id"]}, ${e.toString()}`);
+            }
+        } else {
+            viewersDataArrays.push({
+                timestamp: moment.tz("UTC").unix(),
+                viewers: tw_current_viewers,
+            });
+            let viewNewData = {
+                "id": result["id"],
+                "viewersData": viewersDataArrays,
+                // @ts-ignore
+                "group": channel_map["group"],
+                "platform": "twitcasting"
+            }
+            await ViewersData.insertMany([viewNewData]).catch((err) => {
+                logger.error(`twcastLiveHeartbeat() Failed to add viewers data for ID ${result["id"]}, ${err.toString()}`);
+            })
+        }
     }
 
     logger.info("twcastLiveHeartbeat() checking old data for moving it to past streams...");
-    // @ts-ignore
-    let oldData: TWCastVideoProps[] = video_sets.map((oldRes) => {
+    let oldData: TWCastVideoProps[] = [];
+    for (let i = 0; i < video_sets.length; i++) {
+        let oldRes = video_sets[i];
         let updMap = _.find(updateData, {"id": oldRes["id"]});
         if (!isNone(updMap)) {
-            return [];
+            continue
         }
         let endTime = moment.tz("UTC").unix();
         // @ts-ignore
         let publishedAt = moment.tz(oldRes["timedata"]["startTime"] * 1000, "UTC").format();
-        return {
+
+        // @ts-ignore
+        let updOldData: TWCastVideoProps = {
             "id": oldRes["id"],
             "status": "past",
             "timedata": {
@@ -157,10 +203,37 @@ export async function twcastLiveHeartbeat(skipRunData: SkipRunConfig) {
                 "publishedAt": publishedAt,
             }
         };
-    });
-    // @ts-ignore
-    oldData = _.flattenDeep(oldData);
+
+        let collectViewersData = await ViewersData.findOne({"id": {"$eq": oldRes["id"]}, "platform": {"$eq": "twitcasting"}})
+                                                    .then((doc) => {return doc})
+                                                    .catch(() => {return undefined});
+        if (typeof collectViewersData !== "undefined" && !_.isNull(collectViewersData)) {
+            let viewersStats: any[] = _.get(collectViewersData, "viewersData", []);
+            if (viewersStats.length > 0) {
+                let viewersNum = _.map(viewersStats, "viewers");
+                viewersNum = viewersNum.filter(v => typeof v === "number");
+                let averageViewers = Math.round(_.sum(viewersNum) / viewersNum.length);
+                updOldData["averageViewers"] = isNaN(averageViewers) ? 0 : averageViewers;
+            }
+        }
+        // @ts-ignore
+        oldData.push(updOldData);
+    }
+
     updateData = _.concat(updateData, oldData);
+    let dataWithAverageViewers = _.filter(updateData, (o) => _.has(o, "averageViewers"));
+    if (dataWithAverageViewers.length > 0) {
+        let viewersIdsToDelete = _.map(dataWithAverageViewers, "id");
+        if (viewersIdsToDelete.length > 0) {
+            logger.info(`twcastLiveHeartbeat() removing ${viewersIdsToDelete.length} viewers data...`);
+            try {
+                await ViewersData.deleteMany({"id": {"$in": viewersIdsToDelete}});
+            } catch (e) {
+                logger.error(`twcastLiveHeartbeat() failed to remove viewers data, ${e.toString()}`);
+            }
+            
+        }
+    }
 
     if (insertData.length > 0) {
         logger.info("twcastLiveHeartbeat() inserting new videos...");

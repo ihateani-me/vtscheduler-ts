@@ -13,6 +13,7 @@ const TwitchVideoSchema = createSchema(
         }),
         viewers: Type.number(),
         peakViewers: Type.number(),
+        averageViewers: Type.number(),
         channel_uuid: Type.string({required: true}),
         channel_id: Type.string({required: true}),
         thumbnail: Type.string({required: true}),

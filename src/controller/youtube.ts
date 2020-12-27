@@ -8,6 +8,7 @@ import { fallbackNaN, filterEmpty, isNone } from "../utils/swissknife";
 import moment, { localeData } from "moment-timezone";
 import { SkipRunConfig } from "../models";
 import { resolveDelayCrawlerPromises } from "../utils/crawler";
+import { ViewersData } from "../models/extras";
 
 interface AnyDict {
     [key: string]: any;
@@ -150,7 +151,7 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, skipRunData: 
         return;
     }
     logger.info(`youtubeVideoFeeds() Parsing ${youtube_videos_data.length} new videos`);
-    const to_be_committed = youtube_videos_data.map((res_item) => {
+    const commitPromises = youtube_videos_data.map(async (res_item) => {
         let video_id = res_item["id"];
         let video_type;
         if (!_.has(res_item, "liveStreamingDetails")) {
@@ -227,6 +228,21 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, skipRunData: 
             viewers = peak_viewers = fallbackNaN(parseInt, livedetails["concurrentViewers"], livedetails["concurrentViewers"]);
         }
 
+        if (video_type === "live") {
+            let viewNewData = {
+                "id": video_id,
+                "viewersData": [{
+                    "timestamp": moment.tz("UTC").unix(),
+                    "viewers": viewers
+                }],
+                "group": group,
+                "platform": "youtube"
+            }
+            await ViewersData.insertMany([viewNewData]).catch((err) => {
+                logger.error(`youtubeVideoFeeds() failed to create viewers data for ID ${video_id}, ${err.toString()}`);
+            })
+        }
+
         let thumbs = getBestThumbnail(snippets["thumbnails"], video_id);
 
         let finalData: YTVideoProps = {
@@ -258,12 +274,15 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, skipRunData: 
         return finalData;
     })
 
+    const to_be_committed = await Promise.all(commitPromises);
+
     if (to_be_committed.length > 0) {
         logger.info(`youtubeVideoFeeds() inserting new videos to databases.`)
         await YoutubeVideo.insertMany(to_be_committed).catch((err) => {
             logger.error(`youtubeVideoFeeds() failed to insert to database.\n${err.toString()}`);
         });
     }
+    logger.info("youtubeVideoFeeds() feeds updated!");
 }
 
 export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunData: SkipRunConfig) {
@@ -315,7 +334,7 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
     }
     items_data = _.flattenDeep(items_data);
     logger.info(`youtubeLiveHeartbeat() preparing update...`);
-    let to_be_committed = items_data.map((res_item) => {
+    let commitPromises = items_data.map(async (res_item) => {
         let video_id = res_item["id"];
         let video_type;
         if (!_.has(res_item, "liveStreamingDetails")) {
@@ -401,6 +420,48 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
             }
         }
 
+        if (video_type === "live" && typeof currentViewers === "number") {
+            let viewersDataArrays: {
+                timestamp: number;
+                viewers?: number | undefined;
+            }[] = [];
+            let currentViewersData = await ViewersData.findOne({"id": {"$eq": video_id}}).then((doc) => {
+                return doc;
+            }).catch((err) => {
+                return undefined;
+            });
+            if (typeof currentViewersData !== "undefined" && !_.isNull(currentViewersData)) {
+                viewersDataArrays = _.get(currentViewersData, "viewersData", []);
+                viewersDataArrays.push({
+                    timestamp: moment.tz("UTC").unix(),
+                    viewers: currentViewers,
+                });
+                let viewUpdData = {
+                    "id": currentViewersData["id"],
+                    "viewersData": viewersDataArrays
+                }
+                try {
+                    await ViewersData.updateOne({"id": {"$eq": currentViewersData["id"]}}, viewUpdData);
+                } catch (e) {
+                    logger.error(`youtubeLiveHeartbeat() Failed to update viewers data for ID ${video_id}, ${e.toString()}`);
+                }
+            } else {
+                viewersDataArrays.push({
+                    timestamp: moment.tz("UTC").unix(),
+                    viewers: currentViewers,
+                });
+                let viewNewData = {
+                    "id": video_id,
+                    "viewersData": viewersDataArrays,
+                    "group": _.get(oldData, "group", "unknown"),
+                    "platform": "youtube"
+                }
+                await ViewersData.insertMany([viewNewData]).catch((err) => {
+                    logger.error(`youtubeLiveHeartbeat() Failed to add viewers data for ID ${video_id}, ${err.toString()}`);
+                })
+            }
+        }
+
         let thumbs = getBestThumbnail(snippets["thumbnails"], video_id);
 
         let finalData: YTVideoProps = {
@@ -428,8 +489,23 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
             is_missing: false,
             is_premiere: is_premiere,
         }
+        if (video_type === "past") {
+            let collectViewersData = await ViewersData.findOne({"id": {"$eq": video_id}, "platform": {"$eq": "youtube"}})
+                                                        .then((doc) => {return doc})
+                                                        .catch(() => {return undefined});
+            if (typeof collectViewersData !== "undefined" && !_.isNull(collectViewersData)) {
+                let viewersStats: any[] = _.get(collectViewersData, "viewersData", []);
+                if (viewersStats.length > 0) {
+                    let viewersNum = _.map(viewersStats, "viewers");
+                    viewersNum = viewersNum.filter(v => typeof v === "number");
+                    let averageViewers = Math.round(_.sum(viewersNum) / viewersNum.length);
+                    finalData["averageViewers"] = isNaN(averageViewers) ? 0 : averageViewers;
+                }
+            }
+        }
         return finalData;
     })
+    let to_be_committed = await Promise.all(commitPromises);
 
     // check if something missing from the API
     let expectedResults = _.map(video_sets, "id");
@@ -459,6 +535,19 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
         }
         to_be_committed = _.concat(filteredDifferences);
     }
+    let dataWithAverageViewers = _.filter(to_be_committed, (o) => _.has(o, "averageViewers"));
+    if (dataWithAverageViewers.length > 0) {
+        let viewersIdsToDelete = _.map(dataWithAverageViewers, "id");
+        if (viewersIdsToDelete.length > 0) {
+            logger.info(`youtubeLiveHeartbeat() removing ${viewersIdsToDelete.length} viewers data...`);
+            try {
+                await ViewersData.deleteMany({"id": {"$in": viewersIdsToDelete}});
+            } catch (e) {
+                logger.error(`youtubeLiveHeartbeat() failed to remove viewers data, ${e.toString()}`);
+            }
+            
+        }
+    }
 
     if (to_be_committed.length > 0) {
         logger.info(`youtubeLiveHeartbeat() committing update...`);
@@ -475,6 +564,8 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
             logger.error(`youtubeLiveHeartbeat() failed to update databases, ${err.toString()}`);
         })
     }
+
+    logger.info("youtubeLiveHeartbeat() heartbeat updated!");
 }
 
 export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey, skipRunData: SkipRunConfig) {
@@ -597,6 +688,8 @@ export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey, skipRunDat
             logger.error(`youtubeChannelsStats() failed to update databases, ${err.toString()}`);
         })
     }
+
+    logger.info("youtubeChannelsStats() channels stats updated!");
 }
 
 export async function youtubeVideoMissingCheck(apiKeys: YTRotatingAPIKey, skipRunData: SkipRunConfig) {
@@ -738,4 +831,5 @@ export async function youtubeVideoMissingCheck(apiKeys: YTRotatingAPIKey, skipRu
             logger.error(`youtubeVideoMissingCheck() failed to update databases, ${err.toString()}`);
         })
     }
+    logger.info("youtubeVideoMissingCheck() missing video checked!");
 }
