@@ -16,6 +16,7 @@ const TwitcastingVideoSchema = createSchema(
         averageViewers: Type.number(),
         channel_id: Type.string({required: true}),
         thumbnail: Type.string({required: true}),
+        is_member: Type.boolean(),
         group: Type.string({required: true}),
         platform: Type.string({required: true}),
     }

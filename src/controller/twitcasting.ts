@@ -2,7 +2,7 @@ import axios from "axios";
 import { TwitcastingChannel, TwitcastingVideo, TWCastChannelProps, TWCastVideoProps } from "../models/twitcasting";
 import { logger } from "../utils/logger";
 import _ from "lodash";
-import { isNone } from "../utils/swissknife";
+import { fallbackNaN, isNone } from "../utils/swissknife";
 import moment from "moment-timezone";
 import { SkipRunConfig } from "../models";
 import { resolveDelayCrawlerPromises } from "../utils/crawler";
@@ -71,6 +71,22 @@ export async function twcastLiveHeartbeat(skipRunData: SkipRunConfig) {
             continue;
         }
 
+        // Mapping
+        // 0: Stream ID
+        // 1: Stream status
+        // --> 0 Public
+        // --> 5 Private
+        // --> 7 Private
+        // 2: Comments
+        // 3: Current Viewers
+        // 4: Next polling duration
+        // 5: Max viewers
+        // 6: Time passed in seconds
+        // 7: Stream title
+        // 10: Continue Count?
+        // 12: Time up timer
+        // 19: Special code :)
+
         let tw_sid = splitted_data[0];
         if (tw_sid === "7") {
             continue;
@@ -80,6 +96,18 @@ export async function twcastLiveHeartbeat(skipRunData: SkipRunConfig) {
         let tw_max_viewers = parseInt(splitted_data[5]);
         let tw_current_viewers = parseInt(splitted_data[3]);
         let tw_title = decodeURIComponent(splitted_data[7]);
+
+        // original code snippets:
+        // p is splitted_data position 19 a.k.a special thingy
+        // var c = 1
+        //     , u = 2;
+        // b = [((h = parseInt(p, 10) || 0) & c) > 0, (h & u) > 0], y = b[0], g = b[1];
+        //  {
+        //      isNeverShowState: y,
+        //      isPrivate: g,
+        //  }
+        let tw_special_code = parseInt(fallbackNaN(parseInt, _.nth(splitted_data, 19), NaN), 10) || 0;
+        let is_private = (tw_special_code & 2) > 0;
         let tw_thumbnail_fetch = await session.get(
             `https://apiv2.twitcasting.tv/users/${result.id}/live/thumbnail`, {
                 params: {
@@ -108,6 +136,7 @@ export async function twcastLiveHeartbeat(skipRunData: SkipRunConfig) {
                     // @ts-ignore
                     duration: null,
                 },
+                "is_member": is_private,
                 "viewers": tw_current_viewers,
                 "peakViewers": tw_max_viewers,
                 "thumbnail": tw_thumbnail,
@@ -130,6 +159,7 @@ export async function twcastLiveHeartbeat(skipRunData: SkipRunConfig) {
                 "peakViewers": tw_max_viewers,
                 "channel_id": result["id"],
                 "thumbnail": tw_thumbnail,
+                "is_member": is_private,
                 "group": result["group"],
                 "platform": "twitcasting"
             }
@@ -167,7 +197,7 @@ export async function twcastLiveHeartbeat(skipRunData: SkipRunConfig) {
                 viewers: tw_current_viewers,
             });
             let viewNewData = {
-                "id": result["id"],
+                "id": tw_sid,
                 "viewersData": viewersDataArrays,
                 "group": result["group"],
                 "platform": "twitcasting"
