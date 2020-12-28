@@ -169,8 +169,7 @@ export async function twcastLiveHeartbeat(skipRunData: SkipRunConfig) {
             let viewNewData = {
                 "id": result["id"],
                 "viewersData": viewersDataArrays,
-                // @ts-ignore
-                "group": channel_map["group"],
+                "group": result["group"],
                 "platform": "twitcasting"
             }
             await ViewersData.insertMany([viewNewData]).catch((err) => {
