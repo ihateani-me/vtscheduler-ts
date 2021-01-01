@@ -640,7 +640,7 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
             }
             filteredDifferences.push(idData);
         }
-        to_be_committed = _.concat(filteredDifferences);
+        to_be_committed = _.concat(to_be_committed, filteredDifferences);
     }
     let dataWithAverageViewers = _.filter(to_be_committed, (o) => _.has(o, "averageViewers"));
     if (dataWithAverageViewers.length > 0) {
