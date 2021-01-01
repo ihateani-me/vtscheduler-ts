@@ -27,6 +27,7 @@
   "homepage": "https://github.com/ihateani-me/vtscheduler-ts#readme",
   "devDependencies": {
     "@types/axios": "^0.14.0",
+    "@types/form-data": "^2.5.0",
     "@types/lodash": "^4.14.165",
     "@types/moment-timezone": "^0.5.30",
     "@types/mongoose": "^5.10.3",
@@ -37,6 +38,7 @@
   "dependencies": {
     "axios": "^0.21.0",
     "cron-parser": "^2.18.0",
+    "form-data": "^3.0.0",
     "lodash": "^4.17.20",
     "moment-timezone": "^0.5.32",
     "mongoose": "^5.11.8",
