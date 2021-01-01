@@ -258,7 +258,8 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, skipRunData: 
         let scheduled_start_time = null;
         if (_.has(livedetails, "scheduledStartTime")) {
             scheduled_start_time = moment.tz(livedetails["scheduledStartTime"], "UTC").unix();
-        } else if (_.has(livedetails, "actualStartTime")) {
+        }
+        if (_.has(livedetails, "actualStartTime")) {
             start_time = moment.tz(livedetails["actualStartTime"], "UTC").unix();
             scheduled_start_time = moment.tz(livedetails["scheduledStartTime"], "UTC").unix();
         }
