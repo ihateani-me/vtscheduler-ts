@@ -1,9 +1,17 @@
 # vtscheduler
-A backend scheduler that will track VTuber live stream (and archive) for Youtube, Bilibili, Twitch, Twitcasting<br>
+A backend scheduler that will track VTuber live stream (and archive) for Youtube, ~~Bilibili~~, Twitch, Twitcasting<br>
 Written in Typescript, and using Mongoose.
 
+## Implementation
+- [x] YouTube Implementation
+- [ ] Bilibili Implementation
+- [x] Twitch Implementation
+- [x] Twitcasting Implementation
+
+BiliBili Implementation is a little bit hindered because rate limiting, currently working around the limitation :smile:
+
 ## Installation
-1. Install Node.js
+1. Install Node.js and Prepare a MongoDB Server
 2. Run `npm install`
 3. Run `npm install -g ts-node`
 
@@ -56,7 +64,8 @@ Rename the config.json.example to config.json<br>
         "youtube": {
             "channels": "*/60 */2 * * *",
             "feeds": "*/2 * * * *",
-            "live": "*/1 * * * *"
+            "live": "*/1 * * * *",
+            "missing_check": "*/5 * * * *"
         },
         "twitcasting": {
             "channels": "*/60 */2 * * *",
@@ -86,7 +95,8 @@ Rename the config.json.example to config.json<br>
   - **twitch**: enable Twitch scheduler (ensure you have Client ID and Secret put)
   - **twitcasting**: enable Twitcasting scheduler
 - **intervals**: self-explanatory, all of those are in cron-style time<br>
-  If you need help refer here: [crontab.guru](https://crontab.guru/)
+  If you need help refer here: [crontab.guru](https://crontab.guru/)<br>
+  You can also disable the workers by putting `null` instead of the crontab styles
 
 ## Running
 Make sure you've already configured the config.json and the MongoDB server is up and running
