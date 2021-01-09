@@ -109,8 +109,8 @@ Rename the config.json.example to config.json<br>
   You can also disable the workers by putting `null` instead of the crontab styles
 - filters:
   - **exclude**: Exclude a `channel_ids` and `groups` from being processed
-  - **include**: Include a `channel_ids` and `groups` to be processed
-    Warning: Using this will only fetch anything in the `include` filters.
+  - **include**: Include a `channel_ids` and `groups` to be processed<br>
+    Warning: Using this will only fetch anything in the `include` filters.<br>
     It's also take precedence from `exclude`
 
 ## Running
@@ -140,11 +140,11 @@ It's recommended to create a `id` and `group` indexes for every collection. It's
 For `viewersdatas`, `id` Indexes is enough
 
 **Recommended Indexes**:
-- Name: `Identifier`
+- Name: `Identifier`<br>
   Field: `id`: `1`
-- Name: `Group`
+- Name: `Group`<br>
   Field: `group`: `1`
-- Name: `Identifier and Group`
+- Name: `Identifier and Group`<br>
   Field:
     - `id`: `1`
     - `group`: `1`
