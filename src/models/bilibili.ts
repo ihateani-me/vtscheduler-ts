@@ -22,6 +22,7 @@ const BilibiliChannelSchema = createSchema(
         id: Type.string({ required: true }),
         room_id: Type.string({ required: true }),
         name: Type.string({required: true}),
+        en_name: Type.string(),
         description: Type.string(),
         subscriberCount: Type.number(),
         viewCount: Type.number(),

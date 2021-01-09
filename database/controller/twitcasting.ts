@@ -13,6 +13,7 @@ export async function twcastChannelsDataset(dataset: VTuberModel[]) {
             "User-Agent": CHROME_UA
         }
     })
+    let group = dataset[0]["id"];
 
     logger.info("twcastChannelsDataset() fetching channels data...");
     let channels: TWCastChannelProps[] = await TwitcastingChannel.find({"group": {"$eq": dataset[0].id}});
@@ -20,15 +21,16 @@ export async function twcastChannelsDataset(dataset: VTuberModel[]) {
     let channelIds = dataset.map(res => ({
         id: res.twitcasting,
         group: res.id,
+        name: res.name,
     }));
     // @ts-ignore
     channelIds = channelIds.filter(res => !parsedChannelIds.includes(res.id));
     if (channelIds.length < 1) {
-        logger.warn("twcastChannelsDataset() no new channels to be registered");
+        logger.warn(`twcastChannelsDataset(${group}) no new channels to be registered`);
         return;
     }
 
-    logger.info("twcastChannelsDataset() creating fetch jobs...");
+    logger.info(`twcastChannelsDataset(${group}) creating fetch jobs...`);
     const channelPromises = channelIds.map((channel) => (
         session.get(`https://frontendapi.twitcasting.tv/users/${channel.id}`, {
             params: {
@@ -37,14 +39,14 @@ export async function twcastChannelsDataset(dataset: VTuberModel[]) {
             responseType: "json"
         })
         .then((jsonRes) => {
-            return {"data": jsonRes.data, "group": channel.group};
+            return {"data": jsonRes.data, "group": channel.group, "en_name": channel.name};
         })
         .catch((err) => {
-            logger.error(`twcastChannelsDataset() failed fetching for ${channel.id}, error: ${err.toString()}`);
-            return {"data": {}, "group": channel.group};
+            logger.error(`twcastChannelsDataset(${group}) failed fetching for ${channel.id}, error: ${err.toString()}`);
+            return {"data": {}, "group": channel.group, "en_name": channel.name};
         })
     ));
-    logger.info("twcastChannelsDataset() executing API requests...");
+    logger.info(`twcastChannelsDataset(${group}) executing API requests...`);
     const collectedChannels = (await Promise.all(channelPromises)).filter(res => Object.keys(res["data"]).length > 0);
     let insertData = [];
     for (let i = 0; i < collectedChannels.length; i++) {
@@ -66,6 +68,7 @@ export async function twcastChannelsDataset(dataset: VTuberModel[]) {
         let mappedNew = {
             "id": udata["id"],
             "name": udata["name"],
+            "en_name": raw_res["en_name"],
             "description": desc,
             "thumbnail": profile_img,
             "followerCount": udata["backerCount"],
@@ -77,9 +80,9 @@ export async function twcastChannelsDataset(dataset: VTuberModel[]) {
     }
 
     if (insertData.length > 0) {
-        logger.info(`twcastChannelsDataset() committing new data...`);
+        logger.info(`twcastChannelsDataset(${group}) committing new data...`);
         await TwitcastingChannel.insertMany(insertData).catch((err) => {
-            logger.error(`twcastChannelsDataset() failed to insert new data, ${err.toString()}`);
+            logger.error(`twcastChannelsDataset(${group}) failed to insert new data, ${err.toString()}`);
         });
     }
 }

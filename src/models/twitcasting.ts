@@ -26,6 +26,7 @@ const TwitcastingChannelSchema = createSchema(
     {
         id: Type.string({ required: true }),
         name: Type.string({required: true}),
+        en_name: Type.string(),
         description: Type.string(),
         followerCount: Type.number(),
         level: Type.number(),

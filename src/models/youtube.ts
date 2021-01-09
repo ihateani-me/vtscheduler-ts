@@ -32,6 +32,7 @@ const YoutubeChannelSchema = createSchema(
     {
         id: Type.string({ required: true }),
         name: Type.string({required: true}),
+        en_name: Type.string(),
         description: Type.string(),
         publishedAt: Type.string({required: true}),
         subscriberCount: Type.number(),

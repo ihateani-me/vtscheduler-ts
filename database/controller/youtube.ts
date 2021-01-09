@@ -35,23 +35,24 @@ export async function youtubeChannelDataset(dataset: VTuberModel[], apiKeys: YTR
 
     let parsed_yt_channel: YTChannelProps[] = await YoutubeChannel.find({"group": {"$eq": dataset[0].id}});
     let all_parsed_ids = _.map(parsed_yt_channel, "id");
+    let group = dataset[0]["id"];
 
     let toBeParsed = dataset.map((data) => {
         // @ts-ignore
         if (all_parsed_ids.includes(data["youtube"])) {
             return null;
         }
-        return {"id": data["youtube"], "group": data["id"]};
+        return {"id": data["youtube"], "group": data["id"], "name": data["name"]};
     });
 
     toBeParsed = filterEmpty(toBeParsed);
     if (toBeParsed.length < 1) {
-        logger.warn("youtubeChannelDataset() no new channels to be registered");
+        logger.warn(`youtubeChannelDataset(${group}) no new channels to be registered`);
         return;
     }
 
     const chunked_channels_set = _.chunk(toBeParsed, 40);
-    logger.info(`youtubeChannelDataset() checking channels with total of ${toBeParsed.length} channels (${chunked_channels_set.length} chunks)...`);
+    logger.info(`youtubeChannelDataset(${group}) checking channels with total of ${toBeParsed.length} channels (${chunked_channels_set.length} chunks)...`);
     const items_data_promises = chunked_channels_set.map((chunks, idx) => (
         session.get("https://www.googleapis.com/youtube/v3/channels", {
             params: {
@@ -68,12 +69,14 @@ export async function youtubeChannelDataset(dataset: VTuberModel[], apiKeys: YTR
                 // @ts-ignore
                 let channel_data = _.find(toBeParsed, {"id": res.id});
                 // @ts-ignore
+                res["enName"] = channel_data["name"];
+                // @ts-ignore
                 res["groupData"] = channel_data["group"];
                 return res;
             })
             return items;
         }).catch((err) => {
-            logger.error(`youtubeChannelDataset() failed to fetch info for chunk ${idx}, error: ${err.toString()}`);
+            logger.error(`youtubeChannelDataset(${group}) failed to fetch info for chunk ${idx}, error: ${err.toString()}`);
             return [];
         })
     ))
@@ -98,6 +101,7 @@ export async function youtubeChannelDataset(dataset: VTuberModel[], apiKeys: YTR
         let desc = snippets["description"];
         let pubAt = snippets["publishedAt"]
         let group = res_item["groupData"];
+        let enName = res_item["enName"];
 
         let thumbs = getBestThumbnail(snippets["thumbnails"], "");
         let subsCount = 0,
@@ -118,6 +122,7 @@ export async function youtubeChannelDataset(dataset: VTuberModel[], apiKeys: YTR
         let finalData: YTChannelProps = {
             id: ch_id,
             name: title,
+            en_name: enName,
             description: desc,
             publishedAt: pubAt,
             thumbnail: thumbs,
@@ -130,8 +135,8 @@ export async function youtubeChannelDataset(dataset: VTuberModel[], apiKeys: YTR
         return finalData;
     })
 
-    logger.info(`youtubeChannelDataset() committing new data...`);
+    logger.info(`youtubeChannelDataset(${group}) committing new data...`);
     await YoutubeChannel.insertMany(to_be_committed).catch((err) => {
-        logger.error(`youtubeChannelDataset() failed to insert new data, ${err.toString()}`);
+        logger.error(`youtubeChannelDataset(${group}) failed to insert new data, ${err.toString()}`);
     });
 }
