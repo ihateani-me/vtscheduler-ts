@@ -139,14 +139,10 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: F
 
     logger.info("youtubeVideoFeeds() fetching old video data...");
     let archive: YTVideoProps[] = (await YoutubeVideo.find(findReq));
-    let fetched_video_ids: FetchedVideo = {};
-    archive.forEach((res) => {
-        if (!_.has(fetched_video_ids, res.channel_id)) {
-            fetched_video_ids[res.channel_id] = []
-        }
-        fetched_video_ids[res.channel_id].push(res.id);
-    });
-
+    let fetched_video_ids: FetchedVideo = _.chain(archive)
+                                            .groupBy((g) => g.channel_id)
+                                            .mapValues((o) => _.map(o, (m) => m.id))
+                                            .value();
     logger.info("youtubeVideoFeeds() fetching channels data...");
     let channels: YTChannelProps[] = (await YoutubeChannel.find(findReq));
 
