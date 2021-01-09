@@ -75,7 +75,8 @@
         },
         {
             "name": "Bao",
-            "youtube": "UCZQ7nZ8Lc7pslBN0gN1Jg0w"
+            "youtube": "UCZQ7nZ8Lc7pslBN0gN1Jg0w",
+            "twitch": "hikarustation"
         },
         {
             "name": "Artemis of the Blue",
@@ -84,6 +85,10 @@
         {
             "name": "Utsu Tsuyomi",
             "youtube": "UCtXhPqsPG-UwrijbXmA4Puw"
+        },
+        {
+            "name": "Ririsya",
+            "youtube": "UC1ucgoC_sGww_Euu5iMqpQw"
         }
     ]
 }
