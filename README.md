@@ -118,3 +118,18 @@ Its recommended to split the worker into separate server or process to avoid rat
 
 After that you need to rename `skip_run.json.example` to `skip_run.json` and add anything you dont need on that server.<br>
 Do that on every other server.
+
+## Improving Query Performance
+It's recommended to create a `id` and `group` indexes for every collection. It's not made by default so you need to open Mongo Shell or use MongoDB Compass to create the Indexes for it.
+
+For `viewersdatas`, `id` Indexes is enough
+
+**Recommended Indexes**:
+- Name: `Identifier`
+  Field: `id`: `1`
+- Name: `Group`
+  Field: `group`: `1`
+- Name: `Identifier and Group`
+  Field:
+    - `id`: `1`
+    - `group`: `1`
