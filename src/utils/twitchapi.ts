@@ -4,6 +4,7 @@ import { logger } from "./logger";
 import { version as vt_version } from "../../package.json";
 import { isNone } from "./swissknife";
 import _ from "lodash";
+import { resolveDelayCrawlerPromises } from "./crawler";
 
 interface AnyDict {
     [key: string]: any;
@@ -58,7 +59,7 @@ export class TwitchHelix {
         if (this.remainingBucket < 1) {
             let currentTime = moment.tz("UTC").unix();
             if (this.nextReset > currentTime) {
-                logger.info(`TwitchHelix.handleRateLimit() currently rate limited, delaying by ${this.nextReset - currentTime}`)
+                logger.info(`TwitchHelix.handleRateLimit() currently rate limited, delaying by ${this.nextReset - currentTime} seconds`)
                 await this.delayBy((this.nextReset - currentTime) * 1000);
             }
         }
@@ -144,16 +145,24 @@ export class TwitchHelix {
             await this.authorizeClient();
         }
 
-        let headers = {
+        let chunkedUsernames = _.chunk(usernames, 90);
+        const headers = {
             "Authorization": `Bearer ${this.bearer_token}`,
             "Client-ID": this.cid
         }
-        let params = ["first=100"];
-        usernames.forEach((username) => {
-            params.push(`user_login=${username}`);
-        })
-        let res = await this.getReq(this.BASE_URL + "streams", params, headers);
-        return res["data"];
+
+        const chunkedPromises = chunkedUsernames.map((username_sets, idx) => (
+            this.getReq(this.BASE_URL + "streams", _.concat(["first=100"], _.map(username_sets, (o) => `user_login=${o}`)), headers)
+            .then((results: any) => {
+                return results["data"];
+            }).catch((error: any) => {
+                logger.error(`Failed to fetch chunk ${idx}, ${error.toString()}`);
+                return [];
+            })
+        ))
+        const chunkedPromisesDelayed = resolveDelayCrawlerPromises(chunkedPromises, 500);
+        const returnedPromises = await Promise.all(chunkedPromisesDelayed);
+        return returnedPromises;
     }
 
     async fetchChannels(usernames: string[]) {
@@ -166,16 +175,23 @@ export class TwitchHelix {
             await this.authorizeClient();
         }
 
-        let headers = {
+        const headers = {
             "Authorization": `Bearer ${this.bearer_token}`,
             "Client-ID": this.cid
         }
-        let params: string[] = [];
-        usernames.forEach((username) => {
-            params.push(`login=${username}`);
-        })
-        let res = await this.getReq(this.BASE_URL + "users", params, headers);
-        return res["data"];
+        let chunkedUsernames = _.chunk(usernames, 90);
+        const chunkedPromises = chunkedUsernames.map((username_sets, idx) => (
+            this.getReq(this.BASE_URL + "streams", _.map(username_sets, (o) => `login=${o}`), headers)
+            .then((results: any) => {
+                return results["data"];
+            }).catch((error: any) => {
+                logger.error(`Failed to fetch chunk ${idx}, ${error.toString()}`);
+                return [];
+            })
+        ))
+        const chunkedPromisesDelayed = resolveDelayCrawlerPromises(chunkedPromises, 500);
+        const returnedPromises = await Promise.all(chunkedPromisesDelayed);
+        return returnedPromises;
     }
 
     async fetchChannelFollowers(user_id: string) {
