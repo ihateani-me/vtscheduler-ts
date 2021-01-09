@@ -3,7 +3,12 @@ export * from "./bilibili";
 export * from "./twitcasting";
 export * from "./twitch";
 
-export interface SkipRunConfig {
+export interface FiltersDataConfig {
     channel_ids: string[]
     groups: string[]
+}
+
+export interface FiltersConfig {
+    exclude: FiltersDataConfig
+    include: FiltersDataConfig
 }

@@ -4,26 +4,50 @@ import { logger } from "../utils/logger";
 import _ from "lodash";
 import { fallbackNaN, isNone } from "../utils/swissknife";
 import moment from "moment-timezone";
-import { SkipRunConfig } from "../models";
+import { FiltersConfig } from "../models";
 import { resolveDelayCrawlerPromises } from "../utils/crawler";
 import { ViewersData } from "../models/extras";
+import { TwitcastingAPI, TwitcastingResponse } from "../utils/twitcastingapi";
 
 const CHROME_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36";
 
-export async function twcastLiveHeartbeat(skipRunData: SkipRunConfig) {
+export async function twcastLiveHeartbeat(filtersRun: FiltersConfig) {
     let session = axios.create({
         headers: {
             "User-Agent": CHROME_UA
         }
     })
 
+    let requestConfig: any[] = [];
+    if (filtersRun["exclude"]["groups"].length > 0) {
+        requestConfig.push({
+            "group": {"$nin": filtersRun["exclude"]["groups"]}
+        });
+    }
+    if (filtersRun["include"]["groups"].length > 0) {
+        requestConfig.push({
+            "group": {"$in": filtersRun["include"]["groups"]}
+        });
+    }
+    if (filtersRun["exclude"]["channel_ids"].length > 0) {
+        requestConfig.push({
+            "id": {"$nin": filtersRun["exclude"]["channel_ids"]}
+        });
+    }
+    if (filtersRun["include"]["channel_ids"].length > 0) {
+        requestConfig.push({
+            "id": {"$in": filtersRun["include"]["channel_ids"]}
+        });
+    }
+
+    let findReq: any = {};
+    if (requestConfig.length > 0) {
+        findReq["$and"] = requestConfig;
+    }
+
     logger.info("twcastLiveHeartbeat() fetching channels and videos data...");
-    let video_sets: TWCastVideoProps[] = (await TwitcastingVideo.find({}))
-                                        .filter(res => !skipRunData["groups"].includes(res.group))
-                                        .filter(res => !skipRunData["channel_ids"].includes(res.channel_id));    
-    let channels: TWCastChannelProps[] = (await TwitcastingChannel.find({}))
-                                        .filter(res => !skipRunData["groups"].includes(res.group))
-                                        .filter(res => !skipRunData["channel_ids"].includes(res.id));
+    let video_sets: TWCastVideoProps[] = (await TwitcastingVideo.find(findReq));
+    let channels: TWCastChannelProps[] = (await TwitcastingChannel.find(findReq));
     if (channels.length < 1) {
         logger.warn("twcastLiveHeartbeat() no registered channels");
         return;
@@ -288,17 +312,112 @@ export async function twcastLiveHeartbeat(skipRunData: SkipRunConfig) {
     }   
 }
 
-export async function twcastChannelsStats(skipRunData: SkipRunConfig) {
+// TODO: replace this alltogether
+export async function twcastLiveHeartbeatv2(filtersRun: FiltersConfig) {
+    let requestConfig: any[] = [];
+    if (filtersRun["exclude"]["groups"].length > 0) {
+        requestConfig.push({
+            "group": {"$nin": filtersRun["exclude"]["groups"]}
+        });
+    }
+    if (filtersRun["include"]["groups"].length > 0) {
+        requestConfig.push({
+            "group": {"$in": filtersRun["include"]["groups"]}
+        });
+    }
+    if (filtersRun["exclude"]["channel_ids"].length > 0) {
+        requestConfig.push({
+            "id": {"$nin": filtersRun["exclude"]["channel_ids"]}
+        });
+    }
+    if (filtersRun["include"]["channel_ids"].length > 0) {
+        requestConfig.push({
+            "id": {"$in": filtersRun["include"]["channel_ids"]}
+        });
+    }
+
+    let findReq: any = {};
+    if (requestConfig.length > 0) {
+        findReq["$and"] = requestConfig;
+    }
+
+    logger.info("twcastLiveHeartbeat() fetching channels and videos data...");
+    let video_sets: TWCastVideoProps[] = (await TwitcastingVideo.find(findReq));
+    let channels: TWCastChannelProps[] = (await TwitcastingChannel.find(findReq));
+    if (channels.length < 1) {
+        logger.warn("twcastLiveHeartbeat() no registered channels");
+        return;
+    }
+
+    logger.info("twcastLiveHeartbeat() creating fetch jobs...");
+    const channelPromises = channels.map((channel) => (
+        TwitcastingAPI.getLivesInfo(channel["id"], channel["group"])
+            .then((resp) => {
+                return resp;
+            }).catch((resp) => {
+                logger.error(`twcastLiveHeartbeat() failed to fetch ${channel["id"]} live data, ${resp.toString()}`);
+                const defaults: TwitcastingResponse = {is_live: false, channel_id: channel.id, group: channel.group};
+                return defaults;
+            })
+    ));
+    const wrappedPromises: Promise<TwitcastingResponse>[] = resolveDelayCrawlerPromises(channelPromises, 300);
+
+    const collectedLives = await Promise.all(wrappedPromises);
+    let insertData: any[] = [];
+    let updateData: any[] = [];
+    // let current_time = moment.tz("UTC").unix();
+    for (let i = 0; i < collectedLives.length; i++) {
+        let tw_resp = collectedLives[i];
+        if (!tw_resp.is_live) {
+            continue;
+        }
+
+        let start = _.get(tw_resp, "startTime", null);
+        let publishedAt = moment.tz(start, "UTC").format();
+        
+        let old_mappings = _.find(video_sets, {"id": tw_resp["id"]});
+        if (!isNone(old_mappings)) {
+            
+        }
+    }
+}
+
+export async function twcastChannelsStats(filtersRun: FiltersConfig) {
     let session = axios.create({
         headers: {
             "User-Agent": CHROME_UA
         }
     })
 
+    let requestConfig: any[] = [];
+    if (filtersRun["exclude"]["groups"].length > 0) {
+        requestConfig.push({
+            "group": {"$nin": filtersRun["exclude"]["groups"]}
+        });
+    }
+    if (filtersRun["include"]["groups"].length > 0) {
+        requestConfig.push({
+            "group": {"$in": filtersRun["include"]["groups"]}
+        });
+    }
+    if (filtersRun["exclude"]["channel_ids"].length > 0) {
+        requestConfig.push({
+            "id": {"$nin": filtersRun["exclude"]["channel_ids"]}
+        });
+    }
+    if (filtersRun["include"]["channel_ids"].length > 0) {
+        requestConfig.push({
+            "id": {"$in": filtersRun["include"]["channel_ids"]}
+        });
+    }
+
+    let findReq: any = {};
+    if (requestConfig.length > 0) {
+        findReq["$and"] = requestConfig;
+    }
+
     logger.info("twcastChannelsStats() fetching channels data...");
-    let channels: TWCastChannelProps[] = (await TwitcastingChannel.find({}))
-                                        .filter(res => !skipRunData["groups"].includes(res.group))
-                                        .filter(res => !skipRunData["channel_ids"].includes(res.id));
+    let channels: TWCastChannelProps[] = (await TwitcastingChannel.find(findReq));
     if (channels.length < 1) {
         logger.warn("twcastChannelsStats() no registered channels");
         return;

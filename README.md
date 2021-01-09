@@ -75,6 +75,16 @@ Rename the config.json.example to config.json<br>
             "channels": "*/60 */2 * * *",
             "live": "*/1 * * * *"
         }
+    },
+    "filters": {
+        "exclude": {
+            "channel_ids": [],
+            "groups": []
+        },
+        "include": {
+            "channel_ids": [],
+            "groups": []
+        }
     }
 }
 ```
@@ -97,6 +107,11 @@ Rename the config.json.example to config.json<br>
 - **intervals**: self-explanatory, all of those are in cron-style time<br>
   If you need help refer here: [crontab.guru](https://crontab.guru/)<br>
   You can also disable the workers by putting `null` instead of the crontab styles
+- filters:
+  - **exclude**: Exclude a `channel_ids` and `groups` from being processed
+  - **include**: Include a `channel_ids` and `groups` to be processed
+    Warning: Using this will only fetch anything in the `include` filters.
+    It's also take precedence from `exclude`
 
 ## Running
 Make sure you've already configured the config.json and the MongoDB server is up and running

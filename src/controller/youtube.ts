@@ -6,7 +6,7 @@ import _ from "lodash";
 import { YTRotatingAPIKey } from "../utils/ytkey_rotator";
 import { fallbackNaN, isNone } from "../utils/swissknife";
 import moment from "moment-timezone";
-import { SkipRunConfig } from "../models";
+import { FiltersConfig } from "../models";
 import { resolveDelayCrawlerPromises } from "../utils/crawler";
 import { ViewersData } from "../models/extras";
 
@@ -103,17 +103,42 @@ async function checkIfMembershipStream(session: AxiosInstance, apiKeys: YTRotati
     return null;
 }
 
-export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, skipRunData: SkipRunConfig) {
+export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: FiltersConfig) {
     let session = axios.create({
         headers: {
             "User-Agent": `vtschedule-ts/${vt_version} (https://github.com/ihateani-me/vtscheduler-ts)`
         }
     })
 
-    logger.info("youtubeVideoFeeds() fetching channels data...");
-    let archive: YTVideoProps[] = (await YoutubeVideo.find({}))
-        .filter(res => !skipRunData["groups"].includes(res.group))
-        .filter(res => !skipRunData["channel_ids"].includes(res.channel_id));
+    let requestConfig: any[] = [];
+    if (filtersRun["exclude"]["groups"].length > 0) {
+        requestConfig.push({
+            "group": {"$nin": filtersRun["exclude"]["groups"]}
+        });
+    }
+    if (filtersRun["include"]["groups"].length > 0) {
+        requestConfig.push({
+            "group": {"$in": filtersRun["include"]["groups"]}
+        });
+    }
+    if (filtersRun["exclude"]["channel_ids"].length > 0) {
+        requestConfig.push({
+            "id": {"$nin": filtersRun["exclude"]["channel_ids"]}
+        });
+    }
+    if (filtersRun["include"]["channel_ids"].length > 0) {
+        requestConfig.push({
+            "id": {"$in": filtersRun["include"]["channel_ids"]}
+        });
+    }
+
+    let findReq: any = {};
+    if (requestConfig.length > 0) {
+        findReq["$and"] = requestConfig;
+    }
+
+    logger.info("youtubeVideoFeeds() fetching old video data...");
+    let archive: YTVideoProps[] = (await YoutubeVideo.find(findReq));
     let fetched_video_ids: FetchedVideo = {};
     archive.forEach((res) => {
         if (!_.has(fetched_video_ids, res.channel_id)) {
@@ -122,9 +147,8 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, skipRunData: 
         fetched_video_ids[res.channel_id].push(res.id);
     });
 
-    let channels: YTChannelProps[] = (await YoutubeChannel.find({}))
-        .filter(res => !skipRunData["groups"].includes(res.group))
-        .filter(res => !skipRunData["channel_ids"].includes(res.id));
+    logger.info("youtubeVideoFeeds() fetching channels data...");
+    let channels: YTChannelProps[] = (await YoutubeChannel.find(findReq));
 
     logger.info("youtubeVideoFeeds() creating job task for xml fetch...");
     const xmls_to_fetch = channels.map((channel) => (
@@ -368,17 +392,43 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, skipRunData: 
     logger.info("youtubeVideoFeeds() feeds updated!");
 }
 
-export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunData: SkipRunConfig) {
+export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun: FiltersConfig) {
     let session = axios.create({
         headers: {
             "User-Agent": `vtschedule-ts/${vt_version} (https://github.com/ihateani-me/vtscheduler-ts)`
         }
     })
 
+    let requestConfig: any[] = [];
+    if (filtersRun["exclude"]["groups"].length > 0) {
+        requestConfig.push({
+            "group": {"$nin": filtersRun["exclude"]["groups"]}
+        });
+    }
+    if (filtersRun["include"]["groups"].length > 0) {
+        requestConfig.push({
+            "group": {"$in": filtersRun["include"]["groups"]}
+        });
+    }
+    if (filtersRun["exclude"]["channel_ids"].length > 0) {
+        requestConfig.push({
+            "id": {"$nin": filtersRun["exclude"]["channel_ids"]}
+        });
+    }
+    if (filtersRun["include"]["channel_ids"].length > 0) {
+        requestConfig.push({
+            "id": {"$in": filtersRun["include"]["channel_ids"]}
+        });
+    }
+    requestConfig.push({"status": {"$in": ["live", "upcoming"]}});
+
+    let findReq: any = {};
+    if (requestConfig.length > 0) {
+        findReq["$and"] = requestConfig;
+    }
+
     logger.info("youtubeLiveHeartbeat() fetching videos data...");
-    let video_sets: YTVideoProps[] = (await YoutubeVideo.find({ "status": { "$in": ["live", "upcoming"] } }))
-        .filter(res => !skipRunData["groups"].includes(res.group))
-        .filter(res => !skipRunData["channel_ids"].includes(res.channel_id));
+    let video_sets: YTVideoProps[] = (await YoutubeVideo.find(findReq));
     if (video_sets.length < 1) {
         logger.warn(`youtubeLiveHeartbeat() skipping because no new live/upcoming`);
         return;
@@ -676,17 +726,42 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, skipRunDat
     logger.info("youtubeLiveHeartbeat() heartbeat updated!");
 }
 
-export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey, skipRunData: SkipRunConfig) {
+export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey, filtersRun: FiltersConfig) {
     let session = axios.create({
         headers: {
             "User-Agent": `vtschedule-ts/${vt_version} (https://github.com/ihateani-me/vtscheduler-ts)`
         }
     })
 
+    let requestConfig: any[] = [];
+    if (filtersRun["exclude"]["groups"].length > 0) {
+        requestConfig.push({
+            "group": {"$nin": filtersRun["exclude"]["groups"]}
+        });
+    }
+    if (filtersRun["include"]["groups"].length > 0) {
+        requestConfig.push({
+            "group": {"$in": filtersRun["include"]["groups"]}
+        });
+    }
+    if (filtersRun["exclude"]["channel_ids"].length > 0) {
+        requestConfig.push({
+            "id": {"$nin": filtersRun["exclude"]["channel_ids"]}
+        });
+    }
+    if (filtersRun["include"]["channel_ids"].length > 0) {
+        requestConfig.push({
+            "id": {"$in": filtersRun["include"]["channel_ids"]}
+        });
+    }
+
+    let findReq: any = {};
+    if (requestConfig.length > 0) {
+        findReq["$and"] = requestConfig;
+    }
+
     logger.info("youtubeChannelsStats() fetching videos data...");
-    let channels_data: YTChannelProps[] = (await YoutubeChannel.find({}))
-        .filter(res => !skipRunData["groups"].includes(res.group))
-        .filter(res => !skipRunData["channel_ids"].includes(res.id));
+    let channels_data: YTChannelProps[] = (await YoutubeChannel.find(findReq));
     if (channels_data.length < 1) {
         logger.warn(`youtubeChannelsStats() skipping because no registered channels`);
         return;
@@ -800,17 +875,43 @@ export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey, skipRunDat
     logger.info("youtubeChannelsStats() channels stats updated!");
 }
 
-export async function youtubeVideoMissingCheck(apiKeys: YTRotatingAPIKey, skipRunData: SkipRunConfig) {
+export async function youtubeVideoMissingCheck(apiKeys: YTRotatingAPIKey, filtersRun: FiltersConfig) {
     let session = axios.create({
         headers: {
             "User-Agent": `vtschedule-ts/${vt_version} (https://github.com/ihateani-me/vtscheduler-ts)`
         }
     })
 
+    let requestConfig: any[] = [];
+    if (filtersRun["exclude"]["groups"].length > 0) {
+        requestConfig.push({
+            "group": {"$nin": filtersRun["exclude"]["groups"]}
+        });
+    }
+    if (filtersRun["include"]["groups"].length > 0) {
+        requestConfig.push({
+            "group": {"$in": filtersRun["include"]["groups"]}
+        });
+    }
+    if (filtersRun["exclude"]["channel_ids"].length > 0) {
+        requestConfig.push({
+            "id": {"$nin": filtersRun["exclude"]["channel_ids"]}
+        });
+    }
+    if (filtersRun["include"]["channel_ids"].length > 0) {
+        requestConfig.push({
+            "id": {"$in": filtersRun["include"]["channel_ids"]}
+        });
+    }
+    requestConfig.push({"is_missing": {"$eq": true}});
+
+    let findReq: any = {};
+    if (requestConfig.length > 0) {
+        findReq["$and"] = requestConfig;
+    }
+
     logger.info("youtubeVideoMissingCheck() fetching missing videos data...");
-    let video_sets: YTVideoProps[] = (await YoutubeVideo.find({"is_missing": {"$eq": true}}))
-        .filter(res => !skipRunData["groups"].includes(res.group))
-        .filter(res => !skipRunData["channel_ids"].includes(res.channel_id));
+    let video_sets: YTVideoProps[] = (await YoutubeVideo.find(findReq));
     if (video_sets.length < 1) {
         logger.warn(`youtubeVideoMissingCheck() skipping because no missing video to check`);
         return;

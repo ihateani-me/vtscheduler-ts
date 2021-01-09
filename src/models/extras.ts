@@ -1,4 +1,3 @@
-import { create } from "lodash";
 import { createSchema, Type, typedModel, ExtractProps } from "ts-mongoose";
 
 const ViewersDataSchema = createSchema({

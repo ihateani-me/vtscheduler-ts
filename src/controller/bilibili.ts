@@ -4,7 +4,7 @@ import { logger } from "../utils/logger";
 import _ from "lodash";
 import { isNone } from "../utils/swissknife";
 import moment from "moment-timezone";
-import { SkipRunConfig } from "../models";
+import { FiltersConfig } from "../models";
 import { resolveDelayCrawlerPromises } from "../utils/crawler";
 import { BiliIDwithGroup, fetchChannelsMid } from "../utils/biliapi";
 
@@ -33,17 +33,42 @@ function emptyObject(params?: object) {
     return true;
 }
 
-export async function bilibiliVideoFeeds(skipRunData: SkipRunConfig) {
+export async function bilibiliVideoFeeds(filtersRun: FiltersConfig) {
     let session = axios.create({
         headers: {
             "User-Agent": CHROME_UA
         }
     })
 
+    let requestConfig: any[] = [];
+    if (filtersRun["exclude"]["groups"].length > 0) {
+        requestConfig.push({
+            "group": {"$nin": filtersRun["exclude"]["groups"]}
+        });
+    }
+    if (filtersRun["include"]["groups"].length > 0) {
+        requestConfig.push({
+            "group": {"$in": filtersRun["include"]["groups"]}
+        });
+    }
+    if (filtersRun["exclude"]["channel_ids"].length > 0) {
+        requestConfig.push({
+            "id": {"$nin": filtersRun["exclude"]["channel_ids"]}
+        });
+    }
+    if (filtersRun["include"]["channel_ids"].length > 0) {
+        requestConfig.push({
+            "id": {"$in": filtersRun["include"]["channel_ids"]}
+        });
+    }
+
+    let findReq: any = {};
+    if (requestConfig.length > 0) {
+        findReq["$and"] = requestConfig;
+    }
+
     logger.info("bilibiliVideoFeeds() fetching channels data...");
-    let channels: B2ChannelProps[] = (await BilibiliChannel.find({}))
-                                        .filter(res => !skipRunData["groups"].includes(res.group))
-                                        .filter(res => !skipRunData["channel_ids"].includes(res.id));
+    let channels: B2ChannelProps[] = (await BilibiliChannel.find(findReq));
     if (channels.length < 1) {
         logger.warn("bilibiliVideoFeeds() no registered channels");
         return;
@@ -139,20 +164,43 @@ export async function bilibiliVideoFeeds(skipRunData: SkipRunConfig) {
     }
 }
 
-export async function bilibiliLiveHeartbeat(skipRunData: SkipRunConfig) {
+export async function bilibiliLiveHeartbeat(filtersRun: FiltersConfig) {
     let session = axios.create({
         headers: {
             "User-Agent": CHROME_UA
         }
     })
 
+    let requestConfig: any[] = [];
+    if (filtersRun["exclude"]["groups"].length > 0) {
+        requestConfig.push({
+            "group": {"$nin": filtersRun["exclude"]["groups"]}
+        });
+    }
+    if (filtersRun["include"]["groups"].length > 0) {
+        requestConfig.push({
+            "group": {"$in": filtersRun["include"]["groups"]}
+        });
+    }
+    if (filtersRun["exclude"]["channel_ids"].length > 0) {
+        requestConfig.push({
+            "id": {"$nin": filtersRun["exclude"]["channel_ids"]}
+        });
+    }
+    if (filtersRun["include"]["channel_ids"].length > 0) {
+        requestConfig.push({
+            "id": {"$in": filtersRun["include"]["channel_ids"]}
+        });
+    }
+
+    let findReq: any = {};
+    if (requestConfig.length > 0) {
+        findReq["$and"] = requestConfig;
+    }
+
     logger.info("twcastLiveHeartbeat() fetching channels and videos data...");
-    let video_sets: B2VideoProps[] = (await BilibiliVideo.find({}))
-                                        .filter(res => !skipRunData["groups"].includes(res.group))
-                                        .filter(res => !skipRunData["channel_ids"].includes(res.channel_id));    
-    let channels: B2ChannelProps[] = (await BilibiliChannel.find({}))
-                                        .filter(res => !skipRunData["groups"].includes(res.group))
-                                        .filter(res => !skipRunData["channel_ids"].includes(res.id));
+    let video_sets: B2VideoProps[] = (await BilibiliVideo.find(findReq));
+    let channels: B2ChannelProps[] = (await BilibiliChannel.find(findReq));
     if (channels.length < 1) {
         logger.warn("bilibiliLiveHeartbeat() no registered channels");
         return;
@@ -286,11 +334,36 @@ export async function bilibiliLiveHeartbeat(skipRunData: SkipRunConfig) {
     }
 }
 
-export async function bilibiliChannelsStats(skipRunData: SkipRunConfig) {
+export async function bilibiliChannelsStats(filtersRun: FiltersConfig) {
+    let requestConfig: any[] = [];
+    if (filtersRun["exclude"]["groups"].length > 0) {
+        requestConfig.push({
+            "group": {"$nin": filtersRun["exclude"]["groups"]}
+        });
+    }
+    if (filtersRun["include"]["groups"].length > 0) {
+        requestConfig.push({
+            "group": {"$in": filtersRun["include"]["groups"]}
+        });
+    }
+    if (filtersRun["exclude"]["channel_ids"].length > 0) {
+        requestConfig.push({
+            "id": {"$nin": filtersRun["exclude"]["channel_ids"]}
+        });
+    }
+    if (filtersRun["include"]["channel_ids"].length > 0) {
+        requestConfig.push({
+            "id": {"$in": filtersRun["include"]["channel_ids"]}
+        });
+    }
+
+    let findReq: any = {};
+    if (requestConfig.length > 0) {
+        findReq["$and"] = requestConfig;
+    }
+
     logger.info("bilibiliChannelsStats() fetching channels data...");
-    let channels: B2ChannelProps[] = (await BilibiliChannel.find({}))
-                                    .filter(res => !skipRunData["groups"].includes(res.group))
-                                    .filter(res => !skipRunData["channel_ids"].includes(res.id));
+    let channels: B2ChannelProps[] = (await BilibiliChannel.find(findReq));
     if (channels.length < 1) {
         logger.warn("bilibiliChannelsStats() no registered channels");
         return;
