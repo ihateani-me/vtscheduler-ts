@@ -183,7 +183,7 @@ export class TwitchHelix {
         }
         let chunkedUsernames = _.chunk(usernames, 90);
         const chunkedPromises: Promise<any[]>[] = chunkedUsernames.map((username_sets, idx) => (
-            this.getReq(this.BASE_URL + "streams", _.map(username_sets, (o) => `login=${o}`), headers)
+            this.getReq(this.BASE_URL + "users", _.map(username_sets, (o) => `login=${o}`), headers)
             .then((results: any) => {
                 return results["data"];
             }).catch((error: any) => {
