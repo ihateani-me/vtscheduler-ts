@@ -153,7 +153,7 @@ export class TwitchHelix {
             "Client-ID": this.cid
         }
 
-        const chunkedPromises = chunkedUsernames.map((username_sets, idx) => (
+        const chunkedPromises: Promise<any[]>[] = chunkedUsernames.map((username_sets, idx) => (
             this.getReq(this.BASE_URL + "streams", _.concat(["first=100"], _.map(username_sets, (o) => `user_login=${o}`)), headers)
             .then((results: any) => {
                 return results["data"];
@@ -162,9 +162,9 @@ export class TwitchHelix {
                 return [];
             })
         ))
-        const chunkedPromisesDelayed = resolveDelayCrawlerPromises(chunkedPromises, 500);
+        const chunkedPromisesDelayed: Promise<any[]>[] = resolveDelayCrawlerPromises(chunkedPromises, 500);
         const returnedPromises = await Promise.all(chunkedPromisesDelayed);
-        return returnedPromises;
+        return _.flattenDeep(returnedPromises);
     }
 
     async fetchChannels(usernames: string[]) {
@@ -182,7 +182,7 @@ export class TwitchHelix {
             "Client-ID": this.cid
         }
         let chunkedUsernames = _.chunk(usernames, 90);
-        const chunkedPromises = chunkedUsernames.map((username_sets, idx) => (
+        const chunkedPromises: Promise<any[]>[] = chunkedUsernames.map((username_sets, idx) => (
             this.getReq(this.BASE_URL + "streams", _.map(username_sets, (o) => `login=${o}`), headers)
             .then((results: any) => {
                 return results["data"];
@@ -191,9 +191,9 @@ export class TwitchHelix {
                 return [];
             })
         ))
-        const chunkedPromisesDelayed = resolveDelayCrawlerPromises(chunkedPromises, 500);
+        const chunkedPromisesDelayed: Promise<any[]>[] = resolveDelayCrawlerPromises(chunkedPromises, 500);
         const returnedPromises = await Promise.all(chunkedPromisesDelayed);
-        return returnedPromises;
+        return _.flattenDeep(returnedPromises);
     }
 
     async fetchChannelFollowers(user_id: string) {
