@@ -13,13 +13,14 @@ interface AnyDict {
 export class TwitchHelix {
     private cid: string
     private csc: string
+
+    private nextReset: number
+    private remainingBucket: number
+
     private session: AxiosInstance
     private authorized: boolean
     private bearer_token?: string
     private expires: number
-
-    private nextReset: number
-    private remainingBucket: number
 
     BASE_URL: string
     OAUTH_URL: string
@@ -33,18 +34,19 @@ export class TwitchHelix {
             headers: {"User-Agent": `vtschedule-ts/${vt_version} (https://github.com/ihateani-me/vtscheduler-ts)`}
         })
         this.authorized = false;
-        this.session.interceptors.response.use(this.handleRateLimitResponse, (error) => {
-            return Promise.reject(error);
-        })
-        this.session.interceptors.request.use(this.handleRateLimitRequest, (error) => {
-            return Promise.reject(error);
-        })
 
         this.BASE_URL = "https://api.twitch.tv/helix/";
         this.OAUTH_URL = "https://id.twitch.tv/oauth2/";
 
         this.nextReset = -1;
         this.remainingBucket = -1;
+
+        this.session.interceptors.response.use(this.handleRateLimitResponse.bind(this), (error) => {
+            return Promise.reject(error);
+        })
+        this.session.interceptors.request.use(this.handleRateLimitRequest.bind(this), (error) => {
+            return Promise.reject(error);
+        })
     }
 
     private delayBy(ms: number): Promise<void> {
@@ -56,7 +58,7 @@ export class TwitchHelix {
     }
 
     private async handleRateLimitRequest(config: AxiosRequestConfig): Promise<AxiosRequestConfig> {
-        if (this.remainingBucket < 1) {
+        if (this.remainingBucket < 1 && this.remainingBucket !== -1) {
             let currentTime = moment.tz("UTC").unix();
             if (this.nextReset > currentTime) {
                 logger.info(`TwitchHelix.handleRateLimit() currently rate limited, delaying by ${this.nextReset - currentTime} seconds`)
@@ -67,8 +69,8 @@ export class TwitchHelix {
     }
 
     private handleRateLimitResponse(response: AxiosResponse<any>): AxiosResponse<any> | Promise<AxiosResponse<any>> {
-        this.nextReset = parseInt(response.headers["ratelimit-reset"]);
-        this.remainingBucket = parseInt(response.headers["ratelimit-remaining"]);
+        this.nextReset = parseInt(_.get(response.headers, "ratelimit-reset", this.nextReset));
+        this.remainingBucket = parseInt(_.get(response.headers, "ratelimit-remaining", this.remainingBucket));
         return response;
     }
 
