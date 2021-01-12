@@ -162,7 +162,7 @@ export class TwitchHelix {
                 return [];
             })
         ))
-        const chunkedPromisesDelayed: Promise<any[]>[] = resolveDelayCrawlerPromises(chunkedPromises, 500);
+        const chunkedPromisesDelayed = resolveDelayCrawlerPromises(chunkedPromises, 500);
         const returnedPromises = await Promise.all(chunkedPromisesDelayed);
         return _.flattenDeep(returnedPromises);
     }
@@ -191,7 +191,7 @@ export class TwitchHelix {
                 return [];
             })
         ))
-        const chunkedPromisesDelayed: Promise<any[]>[] = resolveDelayCrawlerPromises(chunkedPromises, 500);
+        const chunkedPromisesDelayed = resolveDelayCrawlerPromises(chunkedPromises, 500);
         const returnedPromises = await Promise.all(chunkedPromisesDelayed);
         return _.flattenDeep(returnedPromises);
     }

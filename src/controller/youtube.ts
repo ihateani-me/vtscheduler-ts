@@ -168,12 +168,7 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: F
                 return [];
             })
     ));
-    const wrappedPromises: Promise<{
-        channel_id: string;
-        video_id: any;
-        title: any;
-        group: string;
-    }[] | never[]>[] = resolveDelayCrawlerPromises(xmls_to_fetch, 300);
+    const wrappedPromises = resolveDelayCrawlerPromises(xmls_to_fetch, 300);
 
     logger.info(`youtubeVideoFeeds() start executing xml fetch, total: ${wrappedPromises.length}`);
     // @ts-ignore
@@ -235,7 +230,7 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: F
                 return [];
             })
     ))
-    const wrappedPromisesVideos: Promise<any>[] = resolveDelayCrawlerPromises(video_to_fetch, 300);
+    const wrappedPromisesVideos = resolveDelayCrawlerPromises(video_to_fetch, 300);
 
     // @ts-ignore
     const youtube_videos_data: AnyDict[] = _.flattenDeep(await Promise.all(wrappedPromisesVideos));
@@ -462,7 +457,7 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
             })
     ))
 
-    const wrappedPromises: Promise<any>[] = resolveDelayCrawlerPromises(items_data_promises, 300);
+    const wrappedPromises = resolveDelayCrawlerPromises(items_data_promises, 300);
 
     let items_data: any[] = await Promise.all(wrappedPromises).catch((err) => {
         logger.error(`youtubeLiveHeartbeat() failed to fetch from API, error: ${err.toString()}`)
@@ -934,7 +929,7 @@ export async function youtubeVideoMissingCheck(apiKeys: YTRotatingAPIKey, filter
             })
     ))
 
-    const wrappedPromises: Promise<any>[] = resolveDelayCrawlerPromises(items_data_promises, 300);
+    const wrappedPromises = resolveDelayCrawlerPromises(items_data_promises, 300);
 
     let items_data: any[] = await Promise.all(wrappedPromises).catch((err) => {
         logger.error(`youtubeVideoMissingCheck() failed to fetch from API, error: ${err.toString()}`)

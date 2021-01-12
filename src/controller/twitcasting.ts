@@ -70,15 +70,7 @@ export async function twcastLiveHeartbeat(filtersRun: FiltersConfig) {
             return {"res": "", "id": channel.id, "group": channel.group};
         })
     ));
-    const wrappedPromises: Promise<{
-        res: any;
-        id: string;
-        group: string;
-    } | {
-        res: string;
-        id: string;
-        group: string;
-    }>[] = resolveDelayCrawlerPromises(channelPromises, 300);
+    const wrappedPromises = resolveDelayCrawlerPromises(channelPromises, 300);
 
     const collectedLives = await Promise.all(wrappedPromises);
     let insertData: any[] = [];
@@ -360,7 +352,7 @@ export async function twcastLiveHeartbeatv2(filtersRun: FiltersConfig) {
                 return defaults;
             })
     ));
-    const wrappedPromises: Promise<TwitcastingResponse>[] = resolveDelayCrawlerPromises(channelPromises, 300);
+    const wrappedPromises = resolveDelayCrawlerPromises(channelPromises, 300);
 
     const collectedLives = await Promise.all(wrappedPromises);
     let insertData: any[] = [];
@@ -439,7 +431,7 @@ export async function twcastChannelsStats(filtersRun: FiltersConfig) {
             return {};
         })
     ));
-    const wrappedPromises: Promise<any>[] = resolveDelayCrawlerPromises(channelPromises, 300);
+    const wrappedPromises = resolveDelayCrawlerPromises(channelPromises, 300);
     logger.info("twcastChannelsStats() executing API requests...");
     const collectedChannels = (await Promise.all(wrappedPromises)).filter(res => Object.keys(res).length > 0);
     let updateData = [];

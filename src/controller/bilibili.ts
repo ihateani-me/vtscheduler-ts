@@ -226,16 +226,7 @@ export async function bilibiliLiveHeartbeat(filtersRun: FiltersConfig) {
         })
     ));
 
-    // @ts-ignore
-    const wrapInDelay: Promise<{
-        data: any;
-        group: string;
-        room_id: string;
-    } | {
-        data: {};
-        group: string;
-        room_id: string;
-    }>[] = resolveDelayCrawlerPromises(channelPromises, 500);
+    const wrapInDelay = resolveDelayCrawlerPromises(channelPromises, 500);
 
     logger.info(`bilibiliLiveHeartbeat() executing ${wrapInDelay.length} jobs...`);
     const fetchedResults = await Promise.all(wrapInDelay);
