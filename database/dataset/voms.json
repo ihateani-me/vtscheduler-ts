@@ -1,4 +1,5 @@
 {
+    "$schema": "https://ihateani.me/vt-schemas.json",
     "id": "voms",
     "name": "VOMS Project",
     "vliver": [

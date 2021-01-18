@@ -1,6 +1,7 @@
 {
+    "$schema": "https://ihateani.me/vt-schemas.json",
     "id": "nijisanji",
-    "name": "Nijisanji Main Branch",
+    "name": "Nijisanji JP",
     "vliver": [
         {
             "id": 1,

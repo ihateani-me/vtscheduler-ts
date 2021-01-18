@@ -1,6 +1,7 @@
 {
+    "$schema": "https://ihateani.me/vt-schemas.json",
     "id": "hololive",
-    "name": "Hololive Main",
+    "name": "Hololive",
     "vliver": [
         {
             "name": "Hololive Official",

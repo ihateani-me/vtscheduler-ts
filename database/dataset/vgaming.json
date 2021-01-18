@@ -1,4 +1,5 @@
 {
+    "$schema": "https://ihateani.me/vt-schemas.json",
     "id": "vgaming",
     "name": "VGaming",
     "vliver": [
