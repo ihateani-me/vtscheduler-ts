@@ -15,7 +15,8 @@
         "youtube": true,
         "bilibili": false,
         "twitch": false,
-        "twitcasting": true
+        "twitcasting": false,
+        "mildom": false
     },
     "intervals": {
         "bilibili": {
@@ -34,6 +35,10 @@
             "live": "*/1 * * * *"
         },
         "twitch": {
+            "channels": "*/60 */2 * * *",
+            "live": "*/1 * * * *"
+        },
+        "mildom": {
             "channels": "*/60 */2 * * *",
             "live": "*/1 * * * *"
         }

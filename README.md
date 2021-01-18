@@ -7,6 +7,7 @@ Written in Typescript, and using Mongoose.
 - [ ] Bilibili Implementation
 - [x] Twitch Implementation
 - [x] Twitcasting Implementation
+- [x] Mildom Implementation
 
 BiliBili Implementation is a little bit hindered because rate limiting, currently working around the limitation :smile:
 
@@ -51,9 +52,10 @@ Rename the config.json.example to config.json<br>
     },
     "workers": {
         "youtube": true,
-        "bilibili": true,
+        "bilibili": false,
         "twitch": false,
-        "twitcasting": true
+        "twitcasting": false,
+        "mildom": false
     },
     "intervals": {
         "bilibili": {
@@ -72,6 +74,10 @@ Rename the config.json.example to config.json<br>
             "live": "*/1 * * * *"
         },
         "twitch": {
+            "channels": "*/60 */2 * * *",
+            "live": "*/1 * * * *"
+        },
+        "mildom": {
             "channels": "*/60 */2 * * *",
             "live": "*/1 * * * *"
         }
