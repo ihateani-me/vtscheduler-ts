@@ -153,7 +153,7 @@ export async function mildomLiveHeartbeat(mildomAPI: MildomAPI, filtersRun: Filt
                 "id": result["id"],
                 "viewersData": viewersDataArrays,
                 // @ts-ignore
-                "group": channel_map["group"],
+                "group": result["group"],
                 "platform": "mildom"
             }
             await ViewersData.insertMany([viewNewData]).catch((err) => {
