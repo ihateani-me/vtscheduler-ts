@@ -3,11 +3,31 @@
  * @param { any } key - things that want to be checked.
  * @returns { boolean } `true` or `false`
  */
-export function isNone(key: any): boolean {
-    if (typeof key == "undefined") {
+export function isNone(key: any, checkEmpty: boolean = false): boolean {
+    if (typeof key === "undefined") {
         return true;
-    } else if (key == null) {
+    } else if (key === null) {
         return true;
+    }
+    if (checkEmpty) {
+        if (typeof key === "object") {
+            if (Array.isArray(key)) {
+                if (key.length < 1) {
+                    return true;
+                }
+                return false;
+            } else {
+                if (Object.keys(key).length < 1) {
+                    return true;
+                }
+                return false;
+            }
+        } else if (typeof key === "string") {
+            if (key.length < 1 || key === "" || key === " ") {
+                return true;
+            }
+            return false;
+        }
     }
     return false;
 }
