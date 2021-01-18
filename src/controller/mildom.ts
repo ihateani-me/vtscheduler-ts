@@ -187,7 +187,7 @@ export async function mildomLiveHeartbeat(mildomAPI: MildomAPI, filtersRun: Filt
             }
         };
 
-        let collectViewersData = await ViewersData.findOne({"id": {"$eq": oldRes["id"]}, "platform": {"$eq": "twitch"}})
+        let collectViewersData = await ViewersData.findOne({"id": {"$eq": oldRes["id"]}, "platform": {"$eq": "mildom"}})
                                                     .then((doc) => {return doc})
                                                     .catch(() => {return undefined});
         if (typeof collectViewersData !== "undefined" && !_.isNull(collectViewersData)) {
