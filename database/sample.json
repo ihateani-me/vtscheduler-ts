@@ -1,0 +1,15 @@
+{
+    "$schema": "https://ihateani.me/vt-schemas.json",
+    "id": "group_id",
+    "name": "The Group Name",
+    "vliver": [
+        {
+            "name": "VTuber name",
+            "youtube": "UCxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "twitch": "twusername",
+            "twitcasting": "twcastusername",
+            "bilibili": "123456789",
+            "mildom": "123456789"
+        }
+    ]
+}
