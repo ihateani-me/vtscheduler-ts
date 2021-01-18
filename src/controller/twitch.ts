@@ -167,7 +167,7 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, filtersRun: FiltersC
                 "startTime": oldRes["timedata"]["startTime"],
                 "endTime": endTime,
                 // @ts-ignore
-                "duration": endTime - oldRes["startTime"],
+                "duration": endTime - oldRes["timedata"]["startTime"],
                 "publishedAt": publishedAt,
             }
         };

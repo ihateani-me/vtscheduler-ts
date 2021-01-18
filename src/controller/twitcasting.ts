@@ -244,7 +244,7 @@ export async function twcastLiveHeartbeat(filtersRun: FiltersConfig) {
                 "startTime": oldRes["timedata"]["startTime"],
                 "endTime": endTime,
                 // @ts-ignore
-                "duration": endTime - oldRes["startTime"],
+                "duration": endTime - oldRes["timedata"]["startTime"],
                 "publishedAt": publishedAt,
             }
         };
