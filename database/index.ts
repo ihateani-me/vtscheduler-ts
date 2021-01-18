@@ -8,8 +8,9 @@ import { logger } from '../src/utils/logger';
 import { join } from "path";
 import { DatasetModel, VTuberModel } from './dataset/model';
 import _ from 'lodash';
-import { bilibiliChannelsDataset, ttvChannelDataset, twcastChannelsDataset, youtubeChannelDataset } from './controller';
+import { bilibiliChannelsDataset, mildomChannelsDataset, ttvChannelDataset, twcastChannelsDataset, youtubeChannelDataset } from './controller';
 import { TwitchHelix } from '../src/utils/twitchapi';
+import { MildomAPI } from '../src/utils/mildomapi';
 
 let mongouri = config.mongodb.uri;
 if (mongouri.endsWith("/")) {
@@ -63,7 +64,7 @@ const delayEnd = () => setTimeout(() => {
     process.stdin.on('data', process.exit.bind(process, 0));
 }, 600);
 
-async function scrapeAndUpdate(filename: string, twitchAPI?: TwitchHelix) {
+async function scrapeAndUpdate(filename: string, twitchAPI?: TwitchHelix, mildomAPI?: MildomAPI) {
     logger.info(`scrapeAndUpdate() processing group: ${filename}`);
     let datasetRead: DatasetModel = JSON.parse(readFileSync(join(__dirname, "dataset", filename), "utf-8"));
     if (!_.has(datasetRead, "id")) {
@@ -86,6 +87,10 @@ async function scrapeAndUpdate(filename: string, twitchAPI?: TwitchHelix) {
         d["id"] = datasetRead["id"];
         return d;
     });
+    let mildomData: VTuberModel[] = datasetRead.vliver.filter(f => _.has(f, "mildom")).map((d) => {
+        d["id"] = datasetRead["id"];
+        return d;
+    })
 
     if (config.workers.youtube && youtubeData.length > 0) {
         // 25 secs
@@ -109,6 +114,11 @@ async function scrapeAndUpdate(filename: string, twitchAPI?: TwitchHelix) {
         logger.info(`scrapeAndUpdate() twitch: ${ttvData.length}`);
         await ttvChannelDataset(ttvData, twitchAPI);
     }
+    if (config.workers.mildom && mildomData.length > 0 && typeof mildomAPI !== "undefined") {
+        logger.info("scrapeAndUpdate() running mildom scraper...");
+        logger.info(`scrapeAndUpdate() mildom: ${mildomData.length}`);
+        await mildomChannelsDataset(mildomAPI, mildomData);
+    }
 }
 
 async function propagateAndUpdate() {
@@ -116,6 +126,7 @@ async function propagateAndUpdate() {
         logger.error("propagateAndUpdate() missing youtube API keys to use");
     }
     let twitchAPI: TwitchHelix;
+    let mildomAPI = new MildomAPI();
     if (config.twitch.client_id && config.twitch.client_secret && config.workers.twitch) {
         logger.info("propagateAndUpdate() initializing twitch API")
         twitchAPI = new TwitchHelix(config.twitch.client_id, config.twitch.client_secret);
@@ -124,7 +135,7 @@ async function propagateAndUpdate() {
 
     let allDatasets = readdirSync(join(__dirname, "dataset"))
         .filter(f => f.endsWith(".json"))
-        .flatMap(async (group): Promise<void> => await scrapeAndUpdate(group, twitchAPI));
+        .flatMap(async (group): Promise<void> => await scrapeAndUpdate(group, twitchAPI, mildomAPI));
     await Promise.all(allDatasets).catch((err) => {
         logger.error(`propagateAndUpdate() failed to propagate, ${err.toString()}`);
         logger.error(err);

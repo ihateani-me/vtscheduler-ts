@@ -113,5 +113,18 @@ function emptyData(t: any) {
             totalWorkers++;
         }
     }
+
+    if (config.workers.mildom) {
+        logger.info("scheduler() Adding jobs for mildom part...");
+        let MildomTasks = new Tasks.MildomTasks(filtersConfig);
+        if (typeof config.intervals.mildom.live === "string") {
+            scheduleJob({rule: config.intervals.mildom.live, tz: "Asia/Tokyo"}, async () => MildomTasks.handleMildomLive());
+            totalWorkers++;
+        }
+        if (typeof config.intervals.mildom.channels === "string") {
+            scheduleJob({rule: config.intervals.mildom.channels, tz: "Asia/Tokyo"}, async () => MildomTasks.handleMildomChannel());
+            totalWorkers++;
+        }
+    }
     logger.info(`scheduler() running ${totalWorkers} workers...`);
 })();

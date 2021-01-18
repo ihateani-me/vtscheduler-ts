@@ -11,4 +11,5 @@ export interface VTuberModel {
     bilibili?: string
     twitch?: string
     twitcasting?: string
+    mildom?: string
 }
