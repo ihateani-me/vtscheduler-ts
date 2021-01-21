@@ -680,6 +680,18 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
             if (idData["timedata"]["startTime"] && idData["timedata"]["scheduledStartTime"]) {
                 idData["timedata"]["lateTime"] = idData["timedata"]["startTime"] - idData["timedata"]["scheduledStartTime"];
             }
+            let collectViewersData = await ViewersData.findOne({"id": {"$eq": idData["id"]}, "platform": {"$eq": "youtube"}})
+                                                        .then((doc) => {return doc})
+                                                        .catch(() => {return undefined});
+            if (typeof collectViewersData !== "undefined" && !_.isNull(collectViewersData)) {
+                let viewersStats: any[] = _.get(collectViewersData, "viewersData", []);
+                if (viewersStats.length > 0) {
+                    let viewersNum = _.map(viewersStats, "viewers");
+                    viewersNum = viewersNum.filter(v => typeof v === "number");
+                    let averageViewers = Math.round(_.sum(viewersNum) / viewersNum.length);
+                    idData["averageViewers"] = isNaN(averageViewers) ? 0 : averageViewers;
+                }
+            }
             filteredDifferences.push(idData);
         }
         to_be_committed = _.concat(to_be_committed, filteredDifferences);
