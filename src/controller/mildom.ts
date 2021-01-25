@@ -38,7 +38,10 @@ export async function mildomLiveHeartbeat(mildomAPI: MildomAPI, filtersRun: Filt
 
     logger.info("mildomLiveHeartbeat() fetching channels and videos data...");
     let video_sets: MildomVideoProps[] = (await MildomVideo.find(findReq));
-    let channels: MildomChannelProps[] = (await MildomChannel.find(findReq));
+    let channelAgro = [];
+    channelAgro.push({"$match": findReq})
+    channelAgro.push({"$project": {"history": 0}});
+    let channels: MildomChannelProps[] = await MildomChannel.aggregate(channelAgro);
     if (channels.length < 1) {
         logger.warn("mildomLiveHeartbeat() no registered channels");
         return;

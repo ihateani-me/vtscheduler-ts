@@ -47,7 +47,10 @@ export async function twcastLiveHeartbeat(filtersRun: FiltersConfig) {
 
     logger.info("twcastLiveHeartbeat() fetching channels and videos data...");
     let video_sets: TWCastVideoProps[] = (await TwitcastingVideo.find(findReq));
-    let channels: TWCastChannelProps[] = (await TwitcastingChannel.find(findReq));
+    let channelAgro = [];
+    channelAgro.push({"$match": findReq})
+    channelAgro.push({"$project": {"history": 0}});
+    let channels: TWCastChannelProps[] = await TwitcastingChannel.aggregate(channelAgro);
     if (channels.length < 1) {
         logger.warn("twcastLiveHeartbeat() no registered channels");
         return;

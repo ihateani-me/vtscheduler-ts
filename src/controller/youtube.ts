@@ -144,7 +144,10 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: F
                                             .mapValues((o) => _.map(o, (m) => m.id))
                                             .value();
     logger.info("youtubeVideoFeeds() fetching channels data...");
-    let channels: YTChannelProps[] = (await YoutubeChannel.find(findReq));
+    let YTChannelAgro = [];
+    YTChannelAgro.push({"$match": findReq})
+    YTChannelAgro.push({"$project": {"history": 0}});
+    let channels: YTChannelProps[] = await YoutubeChannel.aggregate(YTChannelAgro);
 
     logger.info("youtubeVideoFeeds() creating job task for xml fetch...");
     const xmls_to_fetch = channels.map((channel) => (

@@ -37,7 +37,10 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, filtersRun: FiltersC
 
     logger.info("ttvLiveHeartbeat() fetching channels and videos data...");
     let video_sets: TTVVideoProps[] = (await TwitchVideo.find(findReq));
-    let channels: TTVChannelProps[] = (await TwitchChannel.find(findReq));
+    let channelAgro = [];
+    channelAgro.push({"$match": findReq})
+    channelAgro.push({"$project": {"history": 0}});
+    let channels: TTVChannelProps[] = await TwitchChannel.aggregate(channelAgro);
     if (channels.length < 1) {
         logger.warn("ttvLiveHeartbeat() no registered channels");
         return;
