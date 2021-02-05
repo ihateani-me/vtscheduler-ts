@@ -374,7 +374,7 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
     })
 
     logger.info("youtubeLiveHeartbeat() fetching videos data...");
-    let video_sets = await VideosData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [{"platform": {"$eq": "youtube"}}]);
+    let video_sets = await VideosData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [{"platform": {"$eq": "youtube"}}, {"status": {"$in": ["live", "upcoming"]}}]);
     if (video_sets.length < 1) {
         logger.warn(`youtubeLiveHeartbeat() skipping because no new live/upcoming`);
         return;
@@ -868,7 +868,7 @@ export async function youtubeVideoMissingCheck(apiKeys: YTRotatingAPIKey, filter
 
     logger.info("youtubeVideoMissingCheck() fetching missing videos data...");
     let video_sets = await VideosData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [{
-        "is_missing": {"$eq": true}        
+        "is_missing": {"$eq": true}
     }, {
         "platform": {"$eq": "youtube"}
     }]);
