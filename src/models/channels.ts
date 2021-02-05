@@ -4,6 +4,7 @@ import { FiltersDataConfig, PlatformData } from "./extras";
 const ChannelsSchema = createSchema(
     {
         id: Type.string({ required: true }),
+        room_id: Type.string(), // Bilibili Specific
         user_id: Type.string(), // Twitch Specific
         name: Type.string({required: true}),
         en_name: Type.string(),
@@ -17,6 +18,7 @@ const ChannelsSchema = createSchema(
         thumbnail: Type.string({required: true}),
         group: Type.string({required: true}),
         platform: Type.string({required: true, enum: PlatformData}),
+        is_live: Type.boolean(), // B2 Specific
     }
 )
 
