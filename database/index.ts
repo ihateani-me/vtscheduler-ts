@@ -1,16 +1,25 @@
-
-import { createInterface } from 'readline';
+import _ from "lodash";
 import mongoose from "mongoose";
-import { YTRotatingAPIKey } from '../src/utils/ytkey_rotator';
-import config from "../src/config.json";
-import { readdirSync, readFileSync } from "fs"
-import { logger } from '../src/utils/logger';
+import { createInterface } from "readline";
 import { join } from "path";
+import { readdirSync, readFileSync } from "fs"
+
+import { Migrator } from "./migrations";
 import { DatasetModel, VTuberModel } from './dataset/model';
-import _ from 'lodash';
-import { bilibiliChannelsDataset, mildomChannelsDataset, ttvChannelDataset, twcastChannelsDataset, youtubeChannelDataset } from './controller';
+import {
+    bilibiliChannelsDataset,
+    mildomChannelsDataset,
+    ttvChannelDataset,
+    twcastChannelsDataset,
+    youtubeChannelDataset
+} from './controller';
+
+import { logger } from '../src/utils/logger';
+import { YTRotatingAPIKey } from '../src/utils/ytkey_rotator';
 import { TwitchHelix } from '../src/utils/twitchapi';
 import { MildomAPI } from '../src/utils/mildomapi';
+
+import config from "../src/config.json";
 
 let mongouri = config.mongodb.uri;
 if (mongouri.endsWith("/")) {
@@ -30,7 +39,8 @@ export function menuController() {
         "[2] Scrape Missing & Update database list\n" +
         "[3] Nuke all channel collection\n" +
         "[4] Nuke database\n" +
-        "[5] Exit\n"
+        "[5] Migrate database\n" +
+        "[6] Exit\n"
     );
     const int = createInterface(process.stdin, process.stdout);
     int.question("Select: ", async input => {
@@ -49,6 +59,9 @@ export function menuController() {
                 await nukeDatabase();
                 break;
             case "5":
+                await migrateSchema();
+                break;
+            case "6":
                 process.exit(0);
             default:
                 return menuController();
@@ -148,6 +161,10 @@ async function nukeCollection() {
 
 async function nukeDatabase() {
 
+}
+
+async function migrateSchema() {
+    await Migrator();
 }
 
 async function initialize() {
