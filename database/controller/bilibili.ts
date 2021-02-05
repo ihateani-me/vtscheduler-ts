@@ -1,7 +1,15 @@
-import { B2ChannelProps, BilibiliChannel } from "../../src/models";
+import moment from "moment-timezone";
+
+import { VTuberModel } from "../dataset/model";
+
+import {
+    ChannelsData,
+    ChannelsProps,
+    ChannelStatsHistData,
+    ChannelStatsHistProps
+} from "../../src/models";
 import { BiliIDwithGroup, fetchChannelsMid } from "../../src/utils/biliapi";
 import { logger } from "../../src/utils/logger";
-import { VTuberModel } from "../dataset/model";
 
 interface UnpackedData {
     card?: {
@@ -28,7 +36,8 @@ function emptyObject(params?: object) {
 
 export async function bilibiliChannelsDataset(dataset: VTuberModel[]) {
     logger.info("bilibiliChannelsDataset() fetching channels data...");
-    let channels: B2ChannelProps[] = await BilibiliChannel.find({"group": {"$eq": dataset[0].id}});
+    let group = dataset[0]["id"];
+    let channels: ChannelsProps[] = await ChannelsData.find({"group": {"$eq": dataset[0].id}, "platform": {"$eq": "bilibili"}});
     let parsedChannelIds: string[] = channels.map(res => res.id);
     // @ts-ignore
     let channelIds: BiliIDwithGroup[] = dataset.map(res => ({
@@ -38,12 +47,12 @@ export async function bilibiliChannelsDataset(dataset: VTuberModel[]) {
 
     channelIds = channelIds.filter(res => !parsedChannelIds.includes(res.id));
     if (channelIds.length < 1) {
-        logger.warn("twcastChannelsDataset() no new channels to be registered");
+        logger.warn(`twcastChannelsDataset(${group}) no new channels to be registered`);
         return;
     }
-    logger.info(`bilibiliChannelsDataset() processing ${channelIds.length} channels`);
+    logger.info(`bilibiliChannelsDataset(${group}) processing ${channelIds.length} channels`);
     const allFetchedResponses = await fetchChannelsMid(channelIds);
-    logger.info("bilibiliChannelsDataset() parsing results...");
+    logger.info(`bilibiliChannelsDataset(${group}) parsing results...`);
     let insertData = [];
     for (let i = 0; i < allFetchedResponses.length; i++) {
         const mapped_data = allFetchedResponses[i];
@@ -63,16 +72,14 @@ export async function bilibiliChannelsDataset(dataset: VTuberModel[]) {
                 }
             }
         }
-        let mid, group;
+        let mid;
         if (typeof assignedData["info"] === "undefined" && typeof assignedData["card"] === "undefined") {
             logger.error(`bilibiliChannelsDataset() got empty data for index ${i} for some reason...`);
             continue;
         } else if (typeof assignedData["info"] !== "undefined") {
             mid = assignedData["info"].mid;
-            group = assignedData["info"].group;
         } else if (typeof assignedData["card"] !== "undefined") {
             mid = assignedData["card"].mid;
-            group = assignedData["card"].group;
         }
         if (emptyObject(assignedData["info"]?.res) || emptyObject(assignedData["card"]?.res)) {
             logger.error(`bilibiliChannelsDataset() got empty data mid ${mid}...`);
@@ -84,7 +91,7 @@ export async function bilibiliChannelsDataset(dataset: VTuberModel[]) {
 
         let newData = {
             "id": mid,
-            "room_id": infoData["live_room"]["roomid"],
+            "room_id": infoData["live_room"]["roomid"].toString(),
             "name": infoData["name"],
             "description": infoData["sign"],
             "subscriberCount": cardData["follower"],
@@ -92,16 +99,39 @@ export async function bilibiliChannelsDataset(dataset: VTuberModel[]) {
             "videoCount": cardData["archive_count"],
             "thumbnail": infoData["face"],
             "group": group,
-            "live": infoData["live_room"]["liveStatus"] === 1 ? true : false,
+            "is_live": infoData["live_room"]["liveStatus"] === 1 ? true : false,
             "platform": "bilibili"
         }
         insertData.push(newData);
     }
 
+    // @ts-ignore
+    let historyDatas: ChannelStatsHistProps[] = insertData.map((res) => {
+        let timestamp = moment.tz("UTC").unix();
+        return {
+            id: res["id"],
+            history: [
+                {
+                    timestamp: timestamp,
+                    subscriberCount: res["subscriberCount"],
+                    videoCount: res["videoCount"],
+                    viewCount: res["viewCount"],
+                }
+            ],
+            group: res["group"],
+            platform: "bilibili"
+        }
+    });
     if (insertData.length > 0) {
-        logger.info(`bilibiliChannelsDataset() committing new data...`);
-        await BilibiliChannel.insertMany(insertData).catch((err) => {
-            logger.error(`bilibiliChannelsDataset() failed to insert new data, ${err.toString()}`);
+        logger.info(`bilibiliChannelsDataset(${group}) committing new data...`);
+        await ChannelsData.insertMany(insertData).catch((err) => {
+            logger.error(`bilibiliChannelsDataset(${group}) failed to insert new data, ${err.toString()}`);
         });
+    }
+    if (historyDatas.length > 1) {
+        logger.info(`bilibiliChannelsDataset(${group}) committing new history data...`);
+        await ChannelStatsHistData.insertMany(historyDatas).catch((err) => {
+            logger.error(`bilibiliChannelsDataset(${group}) failed to insert new history data, ${err.toString()}`);
+        })
     }
 }

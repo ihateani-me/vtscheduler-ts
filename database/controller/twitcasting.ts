@@ -1,9 +1,17 @@
-import axios from "axios";
 import _ from "lodash";
-import { TWCastChannelProps, TwitcastingChannel } from "../../src/models";
+import axios from "axios";
+import moment from "moment-timezone";
+
+import { VTuberModel } from "../dataset/model";
+
+import {
+    ChannelsData,
+    ChannelsProps,
+    ChannelStatsHistData,
+    ChannelStatsHistProps
+} from "../../src/models";
 import { logger } from "../../src/utils/logger";
 import { isNone } from "../../src/utils/swissknife";
-import { VTuberModel } from "../dataset/model";
 
 const CHROME_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36";
 
@@ -16,7 +24,7 @@ export async function twcastChannelsDataset(dataset: VTuberModel[]) {
     let group = dataset[0]["id"];
 
     logger.info("twcastChannelsDataset() fetching channels data...");
-    let channels: TWCastChannelProps[] = await TwitcastingChannel.find({"group": {"$eq": dataset[0].id}});
+    let channels: ChannelsProps[] = await ChannelsData.find({"group": {"$eq": dataset[0].id}, "platform": {"$eq": "twitcasting"}});
     let parsedChannelIds: string[] = channels.map(res => res.id);
     let channelIds = dataset.map(res => ({
         id: res.twitcasting,
@@ -79,10 +87,33 @@ export async function twcastChannelsDataset(dataset: VTuberModel[]) {
         insertData.push(mappedNew);
     }
 
+    // @ts-ignore
+    let historyDatas: ChannelStatsHistProps[] = insertData.map((res) => {
+        let timestamp = moment.tz("UTC").unix();
+        return {
+            id: res["id"],
+            history: [
+                {
+                    timestamp: timestamp,
+                    followerCount: res["followerCount"],
+                    level: res["level"],
+                }
+            ],
+            group: res["group"],
+            platform: "twitcasting"
+        }
+    });
+
     if (insertData.length > 0) {
         logger.info(`twcastChannelsDataset(${group}) committing new data...`);
-        await TwitcastingChannel.insertMany(insertData).catch((err) => {
+        await ChannelsData.insertMany(insertData).catch((err) => {
             logger.error(`twcastChannelsDataset(${group}) failed to insert new data, ${err.toString()}`);
         });
+    }
+    if (historyDatas.length > 1) {
+        logger.info(`twcastChannelsDataset(${group}) committing new history data...`);
+        await ChannelStatsHistData.insertMany(historyDatas).catch((err) => {
+            logger.error(`twcastChannelsDataset(${group}) failed to insert new history data, ${err.toString()}`);
+        })
     }
 }

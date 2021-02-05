@@ -1,12 +1,20 @@
-import axios from "axios";
 import _ from "lodash";
-import { YoutubeChannel, YTChannelProps } from "../../src/models";
+import axios from "axios";
+import moment from "moment-timezone";
+
+import { VTuberModel } from "../dataset/model";
+
+import {
+    ChannelsData,
+    ChannelsProps,
+    ChannelStatsHistData,
+    ChannelStatsHistProps
+} from "../../src/models";
 import { logger } from "../../src/utils/logger";
 import { fallbackNaN, filterEmpty } from "../../src/utils/swissknife";
-import { VTuberModel } from "../dataset/model";
-import { version as vt_version } from "../../package.json";
 import { YTRotatingAPIKey } from "../../src/utils/ytkey_rotator";
 
+import { version as vt_version } from "../../package.json";
 interface AnyDict {
     [key: string]: any;
 }
@@ -33,7 +41,7 @@ export async function youtubeChannelDataset(dataset: VTuberModel[], apiKeys: YTR
         }
     })
 
-    let parsed_yt_channel: YTChannelProps[] = await YoutubeChannel.find({"group": {"$eq": dataset[0].id}});
+    let parsed_yt_channel: ChannelsProps[] = await ChannelsData.find({"group": {"$eq": dataset[0].id}, "platform": {"$eq": "youtube"}});
     let all_parsed_ids = _.map(parsed_yt_channel, "id");
     let group = dataset[0]["id"];
 
@@ -119,7 +127,7 @@ export async function youtubeChannelDataset(dataset: VTuberModel[], apiKeys: YTR
         }
 
         // @ts-ignore
-        let finalData: YTChannelProps = {
+        let finalData: ChannelsProps = {
             id: ch_id,
             name: title,
             en_name: enName,
@@ -133,10 +141,36 @@ export async function youtubeChannelDataset(dataset: VTuberModel[], apiKeys: YTR
             platform: "youtube"
         }
         return finalData;
-    })
-
-    logger.info(`youtubeChannelDataset(${group}) committing new data...`);
-    await YoutubeChannel.insertMany(to_be_committed).catch((err) => {
-        logger.error(`youtubeChannelDataset(${group}) failed to insert new data, ${err.toString()}`);
     });
+
+    // @ts-ignore
+    let historyDatas: ChannelStatsHistProps[] = to_be_committed.map((res) => {
+        let timestamp = moment.tz("UTC").unix();
+        return {
+            id: res["id"],
+            history: [
+                {
+                    timestamp: timestamp,
+                    subscriberCount: res["subscriberCount"],
+                    viewCount: res["viewCount"],
+                    videoCount: res["videoCount"],
+                }
+            ],
+            group: res["group"],
+            platform: "youtube"
+        }
+    });
+
+    if (to_be_committed.length > 1) {
+        logger.info(`youtubeChannelDataset(${group}) committing new data...`);
+        await ChannelsData.insertMany(to_be_committed).catch((err) => {
+            logger.error(`youtubeChannelDataset(${group}) failed to insert new data, ${err.toString()}`);
+        });
+    }
+    if (historyDatas.length > 1) {
+        logger.info(`youtubeChannelDataset(${group}) committing new history data...`);
+        await ChannelStatsHistData.insertMany(historyDatas).catch((err) => {
+            logger.error(`youtubeChannelDataset(${group}) failed to insert new history data, ${err.toString()}`);
+        })
+    }
 }
