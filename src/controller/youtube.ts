@@ -845,12 +845,12 @@ export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey, filtersRun
         }
     })
 
-    if (insertDBUpdateList.length > 1) {
+    if (insertDBUpdateList.length > 0) {
         await ChannelStatsHistData.insertMany(insertDBUpdateList).catch((err) => {
             logger.error(`youtubeChannelsStats() failed to insert new history to databases, ${err.toString()}`);
         })
     }
-    if (histDBUpdate.length > 1) {
+    if (histDBUpdate.length > 0) {
         await Promise.all(histDBUpdate).catch((err) => {
             logger.error(`youtubeChannelsStats() failed to update history databases, ${err.toString()}`);
         });

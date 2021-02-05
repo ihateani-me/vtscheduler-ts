@@ -161,13 +161,13 @@ export async function youtubeChannelDataset(dataset: VTuberModel[], apiKeys: YTR
         }
     });
 
-    if (to_be_committed.length > 1) {
+    if (to_be_committed.length > 0) {
         logger.info(`youtubeChannelDataset(${group}) committing new data...`);
         await ChannelsData.insertMany(to_be_committed).catch((err) => {
             logger.error(`youtubeChannelDataset(${group}) failed to insert new data, ${err.toString()}`);
         });
     }
-    if (historyDatas.length > 1) {
+    if (historyDatas.length > 0) {
         logger.info(`youtubeChannelDataset(${group}) committing new history data...`);
         await ChannelStatsHistData.insertMany(historyDatas).catch((err) => {
             logger.error(`youtubeChannelDataset(${group}) failed to insert new history data, ${err.toString()}`);

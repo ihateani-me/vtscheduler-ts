@@ -84,7 +84,7 @@ export async function ttvChannelDataset(dataset: VTuberModel[], ttvAPI: TwitchHe
             logger.error(`ttvChannelDataset(${group}) failed to insert new data, ${err.toString()}`);
         });
     }
-    if (historyDatas.length > 1) {
+    if (historyDatas.length > 0) {
         logger.info(`ttvChannelDataset(${group}) committing new history data...`);
         await ChannelStatsHistData.insertMany(historyDatas).catch((err) => {
             logger.error(`ttvChannelDataset(${group}) failed to insert new history data, ${err.toString()}`);

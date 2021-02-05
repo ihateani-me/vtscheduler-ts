@@ -42,7 +42,7 @@ for (let i = 0; i < readDatasets.length; i++) {
     }
 }
 
-if (error.length > 1) {
+if (error.length > 0) {
     throw new Error(`Some data failed to be validated\nThey're: ${error.join(", ")}`);
 } else {
     console.info("[Validator] Finished validating!");

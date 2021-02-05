@@ -63,19 +63,19 @@ export const ChannelsData = typedModel("ChannelsData", ChannelsSchema, undefined
                 "id": {"$in": included["channel_ids"]}
             });
         }
-        if (typeof extras !== "undefined" && extras.length > 1) {
+        if (typeof extras !== "undefined" && extras.length > 0) {
             for (let i = 0; i < extras.length; i++) {
                 requestConfig.push(extras[i]);
             }
         }
         let send: any = {};
-        if (requestConfig.length > 1) {
+        if (requestConfig.length > 0) {
             send["$and"] = requestConfig;
         }
         if (typeof this === "undefined") {
             return []
         }
-        if (typeof project === "object" && Object.keys(project).length > 1) {
+        if (typeof project === "object" && Object.keys(project).length > 0) {
             let aggroReq = [];
             aggroReq.push({"$match": send});
             aggroReq.push({"$project": project});
@@ -107,19 +107,19 @@ export const ChannelStatsHistData = typedModel("ChannelStatsHistData", ChannelSt
                 "id": {"$in": included["channel_ids"]}
             });
         }
-        if (typeof extras !== "undefined" && extras.length > 1) {
+        if (typeof extras !== "undefined" && extras.length > 0) {
             for (let i = 0; i < extras.length; i++) {
                 requestConfig.push(extras[i]);
             }
         }
         let send: any = {};
-        if (requestConfig.length > 1) {
+        if (requestConfig.length > 0) {
             send["$and"] = requestConfig;
         }
         if (typeof this === "undefined") {
             return []
         }
-        if (typeof project === "object" && Object.keys(project).length > 1) {
+        if (typeof project === "object" && Object.keys(project).length > 0) {
             let aggroReq = [];
             aggroReq.push({"$match": send});
             aggroReq.push({"$project": project});
@@ -127,4 +127,4 @@ export const ChannelStatsHistData = typedModel("ChannelStatsHistData", ChannelSt
         }
         return await this.find(send);
     }
-})
+});
