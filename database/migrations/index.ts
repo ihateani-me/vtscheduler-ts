@@ -1,12 +1,14 @@
-import { migrate_MergeCollection_20200205 } from "./2020-02-05-merge-collection";
+import { migrate_MergeCollection_20200205 } from "./2021-02-05-merge-collection";
 import { createInterface } from 'readline';
 import { fallbackNaN } from "../../src/utils/swissknife";
 
-const MIGRATIONS = [{
-    date: "2020-02-05",
-    name: "Collection merging to Video, Channels, Channels Stats History, and Viewers Data",
-    func: migrate_MergeCollection_20200205
-}]
+const MIGRATIONS = [
+    {
+        date: "2021-02-05",
+        name: "Collection merging to Video, Channels, Channels Stats History, and Viewers Data",
+        func: migrate_MergeCollection_20200205
+    },
+]
 
 export async function Migrator() {
     let log_msg = `------------ Database Migrator ------------
