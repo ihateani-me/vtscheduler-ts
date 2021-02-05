@@ -41,7 +41,7 @@ export type ChannelsProps = ExtractProps<typeof ChannelsSchema>;
 export type ChannelStatsHistProps = ExtractProps<typeof ChannelStatsHistorySchema>;
 
 export const ChannelsData = typedModel("ChannelsData", ChannelsSchema, undefined, undefined, {
-    filteredFind: async (excluded: FiltersDataConfig, included: FiltersDataConfig, project?: {}, extras?: {}[]): Promise<ChannelsProps[]> => {
+    filteredFind: async function (excluded: FiltersDataConfig, included: FiltersDataConfig, project?: {}, extras?: {}[]): Promise<ChannelsProps[]> {
         let requestConfig: any[] = [];
         if (excluded["groups"].length > 0) {
             requestConfig.push({
@@ -79,15 +79,13 @@ export const ChannelsData = typedModel("ChannelsData", ChannelsSchema, undefined
             let aggroReq = [];
             aggroReq.push({"$match": send});
             aggroReq.push({"$project": project});
-            // @ts-ignore
             return await this.aggregate(aggroReq);
         }
-        // @ts-ignore
         return await this.find(send);
     }
 });
 export const ChannelStatsHistData = typedModel("ChannelStatsHistData", ChannelStatsHistorySchema, undefined, undefined, {
-    filteredFind: async (excluded: FiltersDataConfig, included: FiltersDataConfig, project?: {}, extras?: {}[]): Promise<ChannelStatsHistProps[]> => {
+    filteredFind: async function (excluded: FiltersDataConfig, included: FiltersDataConfig, project?: {}, extras?: {}[]): Promise<ChannelStatsHistProps[]> {
         let requestConfig: any[] = [];
         if (excluded["groups"].length > 0) {
             requestConfig.push({
@@ -125,10 +123,8 @@ export const ChannelStatsHistData = typedModel("ChannelStatsHistData", ChannelSt
             let aggroReq = [];
             aggroReq.push({"$match": send});
             aggroReq.push({"$project": project});
-            // @ts-ignore
             return await this.aggregate(aggroReq);
         }
-        // @ts-ignore
         return await this.find(send);
     }
 })

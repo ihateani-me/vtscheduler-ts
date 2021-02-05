@@ -43,7 +43,7 @@ export type ViewersProps = ExtractProps<typeof ViewersDataSchema>
 export type VideoProps = ExtractProps<typeof VideosSchema>
 export const ViewersData = typedModel("ViewersData", ViewersDataSchema);
 export const VideosData = typedModel("VideosData", VideosSchema, undefined, undefined, {
-    filteredFind: async (excluded: FiltersDataConfig, included: FiltersDataConfig, project?: {}, extras?: {}[]): Promise<VideoProps[]> => {
+    filteredFind: async function (excluded: FiltersDataConfig, included: FiltersDataConfig, project?: {}, extras?: {}[]): Promise<VideoProps[]> {
         let requestConfig: any[] = [];
         if (excluded["groups"].length > 0) {
             requestConfig.push({
@@ -81,10 +81,8 @@ export const VideosData = typedModel("VideosData", VideosSchema, undefined, unde
             let aggroReq = [];
             aggroReq.push({"$match": send});
             aggroReq.push({"$project": project});
-            // @ts-ignore
             return await this.aggregate(aggroReq);
         }
-        // @ts-ignore
         return await this.find(send);
     }
 });
