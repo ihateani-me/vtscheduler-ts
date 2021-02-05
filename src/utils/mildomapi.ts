@@ -1,9 +1,10 @@
+import _ from "lodash";
 import axios, { AxiosInstance } from "axios";
 import moment from "moment-timezone";
+
 import { logger } from "./logger";
 import { isNone } from "./swissknife";
-import _ from "lodash";
-import { MildomChannelProps, MildomVideoProps } from "../models/mildom";
+import { ChannelsProps, VideoProps } from "../models";
 
 interface AnyDict {
     [key: string]: any
@@ -60,7 +61,7 @@ export class MildomAPI {
         }
 
         // @ts-ignore
-        let properResults: MildomChannelProps = {}
+        let properResults: ChannelsProps = {}
         let bodyRes = _.get(results, "body", {});
         let userInfo = _.get(bodyRes, "user_info", {});
         if (isNone(userInfo, true)) {
@@ -151,7 +152,7 @@ export class MildomAPI {
         }
 
         // @ts-ignore
-        let properResults: MildomVideoProps = {}
+        let properResults: VideoProps = {}
         let liveInfo = _.get(results, "body", {});
         if (isNone(liveInfo, true)) {
             logger.error(`MildomAPI.fetchLives() user ID ${userId} missing required data to process`);

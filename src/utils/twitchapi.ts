@@ -1,10 +1,13 @@
+import _ from "lodash";
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
 import moment from "moment-timezone";
+
 import { logger } from "./logger";
-import { version as vt_version } from "../../package.json";
 import { isNone } from "./swissknife";
-import _ from "lodash";
 import { resolveDelayCrawlerPromises } from "./crawler";
+
+import { version as vt_version } from "../../package.json";
+
 
 interface AnyDict {
     [key: string]: any;

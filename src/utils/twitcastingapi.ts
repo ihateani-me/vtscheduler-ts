@@ -1,6 +1,7 @@
+import _ from "lodash";
 import axios, { AxiosInstance } from "axios"
 import FormData from "form-data";
-import _ from "lodash";
+
 import { resolveDelayCrawlerPromises } from "./crawler";
 import { logger } from "./logger";
 

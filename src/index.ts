@@ -1,11 +1,14 @@
-import { scheduleJob } from 'node-schedule';
-import mongoose from 'mongoose';
-import config from "./config.json";
-import * as Tasks from "./tasks";
+import mongoose from "mongoose";
+import { scheduleJob } from "node-schedule";
+
 import { logger } from "./utils/logger";
 import { isNone } from "./utils/swissknife";
 import { TwitchHelix } from "./utils/twitchapi";
 import { YTRotatingAPIKey } from "./utils/ytkey_rotator";
+
+import * as Tasks from "./tasks";
+
+import config from "./config.json";
 
 let mongouri = config.mongodb.uri;
 if (mongouri.endsWith("/")) {
@@ -18,7 +21,7 @@ logger.info("Connecting to database...");
 mongoose.connect(`${mongouri}/${config.mongodb.dbname}`, {useNewUrlParser: true, useUnifiedTopology: true, useFindAndModify: false});
 
 if (!config.workers.youtube && !config.workers.bilibili && !config.workers.twitcasting && !config.workers.twitch) {
-    logger.info("There's no worker enable, shutting down");
+    logger.info("There's no worker enabled, shutting down");
     process.exit(0);
 }
 
