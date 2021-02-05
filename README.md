@@ -11,6 +11,11 @@ Written in Typescript, and using Mongoose.
 
 BiliBili Implementation is a little bit hindered because rate limiting, currently working around the limitation :smile:
 
+## Breaking Changes
+**0.3.0**
+Please run the database script `npm run database` and run the Migrations 2021-02-05<br>
+Run this if you already setup this program before this update
+
 ## Installation
 1. Install Node.js and Prepare a MongoDB Server
 2. Run `npm install`
