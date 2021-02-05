@@ -1,14 +1,19 @@
-import { createSchema, Type, typedModel, ExtractProps } from "ts-mongoose";
+export interface FiltersDataConfig {
+    channel_ids: string[]
+    groups: string[]
+}
 
-const ViewersDataSchema = createSchema({
-    id: Type.string({required: true}),
-    viewersData: Type.array({required: true}).of({
-        timestamp: Type.number({required: true}),
-        viewers: Type.number(),
-    }),
-    group: Type.string({required: true}),
-    platform: Type.string({required: true}),
-})
+export interface FiltersConfig {
+    exclude: FiltersDataConfig
+    include: FiltersDataConfig
+}
 
-export type ViewersProps = ExtractProps<typeof ViewersDataSchema>
-export const ViewersData = typedModel("ViewersData", ViewersDataSchema);
+export interface HistoryMap {
+    id: string
+    history: any
+    mod: "insert" | "update"
+    group: string
+}
+
+export const PlatformData = ["youtube", "bilibili", "twitch", "twitcasting", "mildom"] as const;
+export const LiveStatus = ["live", "upcoming", "past", "video"] as const;
