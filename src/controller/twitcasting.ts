@@ -1,13 +1,22 @@
-import axios from "axios";
-import { TwitcastingChannel, TwitcastingVideo, TWCastChannelProps, TWCastVideoProps } from "../models/twitcasting";
-import { logger } from "../utils/logger";
 import _ from "lodash";
-import { fallbackNaN, isNone } from "../utils/swissknife";
+import axios from "axios";
 import moment from "moment-timezone";
-import { FiltersConfig } from "../models";
+
+import { logger } from "../utils/logger";
+import { fallbackNaN, isNone } from "../utils/swissknife";
 import { resolveDelayCrawlerPromises } from "../utils/crawler";
-import { ViewersData } from "../models/extras";
 import { TwitcastingAPI, TwitcastingResponse } from "../utils/twitcastingapi";
+
+import {
+    FiltersConfig,
+    VideosData,
+    VideoProps,
+    ChannelsData,
+    ChannelsProps,
+    ChannelStatsHistData,
+    ViewersData,
+    HistoryMap
+} from "../models";
 
 const CHROME_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36";
 
@@ -18,39 +27,9 @@ export async function twcastLiveHeartbeat(filtersRun: FiltersConfig) {
         }
     })
 
-    let requestConfig: any[] = [];
-    if (filtersRun["exclude"]["groups"].length > 0) {
-        requestConfig.push({
-            "group": {"$nin": filtersRun["exclude"]["groups"]}
-        });
-    }
-    if (filtersRun["include"]["groups"].length > 0) {
-        requestConfig.push({
-            "group": {"$in": filtersRun["include"]["groups"]}
-        });
-    }
-    if (filtersRun["exclude"]["channel_ids"].length > 0) {
-        requestConfig.push({
-            "id": {"$nin": filtersRun["exclude"]["channel_ids"]}
-        });
-    }
-    if (filtersRun["include"]["channel_ids"].length > 0) {
-        requestConfig.push({
-            "id": {"$in": filtersRun["include"]["channel_ids"]}
-        });
-    }
-
-    let findReq: any = {};
-    if (requestConfig.length > 0) {
-        findReq["$and"] = requestConfig;
-    }
-
     logger.info("twcastLiveHeartbeat() fetching channels and videos data...");
-    let video_sets: TWCastVideoProps[] = (await TwitcastingVideo.find(findReq));
-    let channelAgro = [];
-    channelAgro.push({"$match": findReq})
-    channelAgro.push({"$project": {"history": 0}});
-    let channels: TWCastChannelProps[] = await TwitcastingChannel.aggregate(channelAgro);
+    let video_sets = await VideosData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [{"platform": {"$eq": "twitcasting"}}]);
+    let channels = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], {"id": 1, "group": 1}, [{"platform": {"$eq": "twitcasting"}}]);
     if (channels.length < 1) {
         logger.warn("twcastLiveHeartbeat() no registered channels");
         return;
@@ -144,7 +123,7 @@ export async function twcastLiveHeartbeat(filtersRun: FiltersConfig) {
 
         let old_mappings = _.find(video_sets, {"id": tw_sid});
         if (!isNone(old_mappings)) {
-            let mappedUpdate: TWCastVideoProps = {
+            let mappedUpdate: VideoProps = {
                 "id": tw_sid,
                 "title": tw_title,
                 "timedata": {
@@ -162,7 +141,7 @@ export async function twcastLiveHeartbeat(filtersRun: FiltersConfig) {
             }
             updateData.push(mappedUpdate)
         } else {
-            let insertUpdate: TWCastVideoProps = {
+            let insertUpdate: VideoProps = {
                 "id": tw_sid,
                 "title": tw_title,
                 "timedata": {
@@ -228,7 +207,7 @@ export async function twcastLiveHeartbeat(filtersRun: FiltersConfig) {
     }
 
     logger.info("twcastLiveHeartbeat() checking old data for moving it to past streams...");
-    let oldData: TWCastVideoProps[] = [];
+    let oldData: VideoProps[] = [];
     for (let i = 0; i < video_sets.length; i++) {
         let oldRes = video_sets[i];
         let updMap = _.find(updateData, {"id": oldRes["id"]});
@@ -240,7 +219,7 @@ export async function twcastLiveHeartbeat(filtersRun: FiltersConfig) {
         let publishedAt = moment.tz(oldRes["timedata"]["startTime"] * 1000, "UTC").format();
 
         // @ts-ignore
-        let updOldData: TWCastVideoProps = {
+        let updOldData: VideoProps = {
             "id": oldRes["id"],
             "status": "past",
             "timedata": {
@@ -285,14 +264,14 @@ export async function twcastLiveHeartbeat(filtersRun: FiltersConfig) {
 
     if (insertData.length > 0) {
         logger.info("twcastLiveHeartbeat() inserting new videos...");
-        await TwitcastingVideo.insertMany(insertData).catch((err) => {
+        await VideosData.insertMany(insertData).catch((err) => {
             logger.error(`twcastLiveHeartbeat() failed to insert new video to database.\n${err.toString()}`);
         });
     }
     if (updateData.length > 0) {
         logger.info("twcastLiveHeartbeat() updating existing videos...");
         const dbUpdateCommit = updateData.map((new_update) => (
-            TwitcastingVideo.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
+            VideosData.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
                 if (err) {
                     logger.error(`twcastLiveHeartbeat() failed to update ${new_update.id}, ${err.toString()}`);
                     return;
@@ -304,77 +283,8 @@ export async function twcastLiveHeartbeat(filtersRun: FiltersConfig) {
         await Promise.all(dbUpdateCommit).catch((err) => {
             logger.error(`twcastLiveHeartbeat() failed to update databases, ${err.toString()}`);
         })
-    }   
-}
-
-// TODO: replace this alltogether
-export async function twcastLiveHeartbeatv2(filtersRun: FiltersConfig) {
-    let requestConfig: any[] = [];
-    if (filtersRun["exclude"]["groups"].length > 0) {
-        requestConfig.push({
-            "group": {"$nin": filtersRun["exclude"]["groups"]}
-        });
     }
-    if (filtersRun["include"]["groups"].length > 0) {
-        requestConfig.push({
-            "group": {"$in": filtersRun["include"]["groups"]}
-        });
-    }
-    if (filtersRun["exclude"]["channel_ids"].length > 0) {
-        requestConfig.push({
-            "id": {"$nin": filtersRun["exclude"]["channel_ids"]}
-        });
-    }
-    if (filtersRun["include"]["channel_ids"].length > 0) {
-        requestConfig.push({
-            "id": {"$in": filtersRun["include"]["channel_ids"]}
-        });
-    }
-
-    let findReq: any = {};
-    if (requestConfig.length > 0) {
-        findReq["$and"] = requestConfig;
-    }
-
-    logger.info("twcastLiveHeartbeat() fetching channels and videos data...");
-    let video_sets: TWCastVideoProps[] = (await TwitcastingVideo.find(findReq));
-    let channels: TWCastChannelProps[] = (await TwitcastingChannel.find(findReq));
-    if (channels.length < 1) {
-        logger.warn("twcastLiveHeartbeat() no registered channels");
-        return;
-    }
-
-    logger.info("twcastLiveHeartbeat() creating fetch jobs...");
-    const channelPromises = channels.map((channel) => (
-        TwitcastingAPI.getLivesInfo(channel["id"], channel["group"])
-            .then((resp) => {
-                return resp;
-            }).catch((resp) => {
-                logger.error(`twcastLiveHeartbeat() failed to fetch ${channel["id"]} live data, ${resp.toString()}`);
-                const defaults: TwitcastingResponse = {is_live: false, channel_id: channel.id, group: channel.group};
-                return defaults;
-            })
-    ));
-    const wrappedPromises = resolveDelayCrawlerPromises(channelPromises, 300);
-
-    const collectedLives = await Promise.all(wrappedPromises);
-    let insertData: any[] = [];
-    let updateData: any[] = [];
-    // let current_time = moment.tz("UTC").unix();
-    for (let i = 0; i < collectedLives.length; i++) {
-        let tw_resp = collectedLives[i];
-        if (!tw_resp.is_live) {
-            continue;
-        }
-
-        let start = _.get(tw_resp, "startTime", null);
-        let publishedAt = moment.tz(start, "UTC").format();
-        
-        let old_mappings = _.find(video_sets, {"id": tw_resp["id"]});
-        if (!isNone(old_mappings)) {
-            
-        }
-    }
+    logger.info("twcastLiveHeartbeat() heartbeat updated!");
 }
 
 export async function twcastChannelsStats(filtersRun: FiltersConfig) {
@@ -384,39 +294,17 @@ export async function twcastChannelsStats(filtersRun: FiltersConfig) {
         }
     })
 
-    let requestConfig: any[] = [];
-    if (filtersRun["exclude"]["groups"].length > 0) {
-        requestConfig.push({
-            "group": {"$nin": filtersRun["exclude"]["groups"]}
-        });
-    }
-    if (filtersRun["include"]["groups"].length > 0) {
-        requestConfig.push({
-            "group": {"$in": filtersRun["include"]["groups"]}
-        });
-    }
-    if (filtersRun["exclude"]["channel_ids"].length > 0) {
-        requestConfig.push({
-            "id": {"$nin": filtersRun["exclude"]["channel_ids"]}
-        });
-    }
-    if (filtersRun["include"]["channel_ids"].length > 0) {
-        requestConfig.push({
-            "id": {"$in": filtersRun["include"]["channel_ids"]}
-        });
-    }
-
-    let findReq: any = {};
-    if (requestConfig.length > 0) {
-        findReq["$and"] = requestConfig;
-    }
-
     logger.info("twcastChannelsStats() fetching channels data...");
-    let channels: TWCastChannelProps[] = (await TwitcastingChannel.find(findReq));
+    let channels = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [{"platform": {"$eq": "twitcasting"}}]);
     if (channels.length < 1) {
         logger.warn("twcastChannelsStats() no registered channels");
         return;
     }
+    logger.info("twcastChannelsStats() fetching history data...");
+    let channels_history_data = await ChannelStatsHistData.filteredFind(filtersRun["exclude"], filtersRun["include"], {
+        "id": 1,
+        "platform": 1,
+    }, [{"platform": {"$eq": "twitcasting"}}]);
 
     logger.info("twcastChannelsStats() creating fetch jobs...");
     const channelPromises = channels.map((channel) => (
@@ -438,6 +326,7 @@ export async function twcastChannelsStats(filtersRun: FiltersConfig) {
     logger.info("twcastChannelsStats() executing API requests...");
     const collectedChannels = (await Promise.all(wrappedPromises)).filter(res => Object.keys(res).length > 0);
     let updateData = [];
+    let historySet: HistoryMap[] = [];
     let currentTimestamp = moment.tz("UTC").unix();
     for (let i = 0; i < collectedChannels.length; i++) {
         let result = collectedChannels[i];
@@ -455,33 +344,46 @@ export async function twcastChannelsStats(filtersRun: FiltersConfig) {
             profile_img = "https:" + profile_img
         }
 
-        let historyData: any[] = [];
-        let oldData = _.find(channels, {"id": udata["id"]});
-        if (typeof oldData !== "undefined") {
-            // concat old set
-            let oldHistoryData = _.get(oldData, "history", []);
-            if (oldHistoryData.length === 0) {
-                logger.error(`twcastChannelsStats() missing history data in old data for ID ${udata["id"]}`);
-            } else {
-                historyData = _.concat(historyData, oldHistoryData);
-            }
+        let chData = _.find(channels, {"id": udata["id"]});
+        let group: string;
+        if (typeof chData !== "undefined") {
+            group = chData["group"];
+        } else {
+            group = "unknown";
+        }
+        let oldHistory = _.find(channels_history_data, {"id": udata["id"]});
+        if (typeof oldHistory === "undefined") {
+            historySet.push({
+                id: udata["id"],
+                history: {
+                    timestamp: currentTimestamp,
+                    followerCount: udata["backerCount"],
+                    level: udata["level"],
+                },
+                mod: "insert",
+                group: group
+            })
+        } else {
+            historySet.push({
+                id: udata["id"],
+                history: {
+                    timestamp: currentTimestamp,
+                    followerCount: udata["backerCount"],
+                    level: udata["level"],
+                },
+                mod: "update",
+                group: group
+            })
         }
 
-        historyData.push({
-            timestamp: currentTimestamp,
-            followerCount: udata["backerCount"],
-            level: udata["level"],
-        })
-
         // @ts-ignore
-        let mappedUpdate: TWCastChannelProps = {
+        let mappedUpdate: ChannelsProps = {
             "id": udata["id"],
             "name": udata["name"],
             "description": desc,
             "thumbnail": profile_img,
             "followerCount": udata["backerCount"],
             "level": udata["level"],
-            "history": historyData
         }
         updateData.push(mappedUpdate);
     }
@@ -504,4 +406,37 @@ export async function twcastChannelsStats(filtersRun: FiltersConfig) {
             logger.error(`twcastChannelsStats() failed to update databases, ${err.toString()}`);
         })
     }
+
+    // Update history data
+    logger.info("twcastChannelsStats() updating/inserting channel stats!");
+    let histDBUpdate = historySet.filter((o) => o.mod === "update").map((new_upd) => {
+        ChannelStatsHistData.updateOne({"id": {"$eq": new_upd.id}, "platform": {"$eq": "twitcasting"}}, {"$addToSet": {history: new_upd["history"]}}, (err) => {
+            if (err) {
+                logger.error(`twcastChannelsStats() failed to update history ${new_upd.id}, ${err.toString()}`);
+            } else {
+                return;
+            }
+        })
+    });
+    let insertDBUpdateList = historySet.filter((o) => o.mod === "insert").map((peta) => {
+        return {
+            id: peta["id"],
+            history: [peta["history"]],
+            group: peta["group"],
+            platform: "twitcasting",
+        }
+    })
+
+    if (insertDBUpdateList.length > 1) {
+        await ChannelStatsHistData.insertMany(insertDBUpdateList).catch((err) => {
+            logger.error(`twcastChannelsStats() failed to insert new history to databases, ${err.toString()}`);
+        })
+    }
+    if (histDBUpdate.length > 1) {
+        await Promise.all(histDBUpdate).catch((err) => {
+            logger.error(`twcastChannelsStats() failed to update history databases, ${err.toString()}`);
+        });
+    }
+
+    logger.info("twcastChannelsStats() channels stats updated!");
 }

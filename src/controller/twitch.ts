@@ -1,46 +1,25 @@
-import { TwitchChannel, TwitchVideo, TTVChannelProps, TTVVideoProps } from "../models/twitch";
-import { logger } from "../utils/logger";
 import _ from "lodash";
-import { isNone } from "../utils/swissknife";
 import moment from "moment-timezone";
+
+import { logger } from "../utils/logger";
+import { isNone } from "../utils/swissknife";
 import { TwitchHelix } from "../utils/twitchapi";
-import { FiltersConfig } from "../models";
-import { ViewersData } from "../models/extras";
+
+import {
+    FiltersConfig,
+    VideosData,
+    VideoProps,
+    ChannelsData,
+    ChannelsProps,
+    ChannelStatsHistData,
+    ViewersData,
+    HistoryMap,
+} from "../models";
 
 export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, filtersRun: FiltersConfig) {
-    let requestConfig: any[] = [];
-    if (filtersRun["exclude"]["groups"].length > 0) {
-        requestConfig.push({
-            "group": {"$nin": filtersRun["exclude"]["groups"]}
-        });
-    }
-    if (filtersRun["include"]["groups"].length > 0) {
-        requestConfig.push({
-            "group": {"$in": filtersRun["include"]["groups"]}
-        });
-    }
-    if (filtersRun["exclude"]["channel_ids"].length > 0) {
-        requestConfig.push({
-            "id": {"$nin": filtersRun["exclude"]["channel_ids"]}
-        });
-    }
-    if (filtersRun["include"]["channel_ids"].length > 0) {
-        requestConfig.push({
-            "id": {"$in": filtersRun["include"]["channel_ids"]}
-        });
-    }
-
-    let findReq: any = {};
-    if (requestConfig.length > 0) {
-        findReq["$and"] = requestConfig;
-    }
-
     logger.info("ttvLiveHeartbeat() fetching channels and videos data...");
-    let video_sets: TTVVideoProps[] = (await TwitchVideo.find(findReq));
-    let channelAgro = [];
-    channelAgro.push({"$match": findReq})
-    channelAgro.push({"$project": {"history": 0}});
-    let channels: TTVChannelProps[] = await TwitchChannel.aggregate(channelAgro);
+    let video_sets = await VideosData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [{"platform": {"$eq": "twitch"}}]);
+    let channels = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], {"id": 1, "user_id": 1, "group": 1}, [{"platform": {"$eq": "twitch"}}]);
     if (channels.length < 1) {
         logger.warn("ttvLiveHeartbeat() no registered channels");
         return;
@@ -72,7 +51,7 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, filtersRun: FiltersC
 
         let old_mappings = _.find(video_sets, {"id": result["id"]});
         if (isNone(old_mappings)) {
-            let insertNew: TTVVideoProps = {
+            let insertNew: VideoProps = {
                 "id": result["id"],
                 "title": result["title"],
                 "status": "live",
@@ -94,7 +73,7 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, filtersRun: FiltersC
             if (viewers > peakViewers) {
                 peakViewers = viewers;
             }
-            let updateOld: TTVVideoProps = {
+            let updateOld: VideoProps = {
                 "id": result["id"],
                 "title": result["title"],
                 "status": "live",
@@ -151,7 +130,7 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, filtersRun: FiltersC
     }
 
     logger.info("ttvLiveHeartbeat() checking old data for moving it to past streams...");
-    let oldData: TTVVideoProps[] = [];
+    let oldData: VideoProps[] = [];
     for (let i = 0; i < video_sets.length; i++) {
         let oldRes = video_sets[i];
         let updMap = _.find(updateData, {"id": oldRes["id"]});
@@ -163,7 +142,7 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, filtersRun: FiltersC
         let publishedAt = moment.tz(oldRes["timedata"]["startTime"] * 1000, "UTC").format();
 
         // @ts-ignore
-        let updOldData: TTVVideoProps = {
+        let updOldData: VideoProps = {
             "id": oldRes["id"],
             "status": "past",
             "timedata": {
@@ -208,15 +187,14 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, filtersRun: FiltersC
 
     if (insertData.length > 0) {
         logger.info("ttvLiveHeartbeat() inserting new videos...");
-        await TwitchVideo.insertMany(insertData).catch((err) => {
+        await VideosData.insertMany(insertData).catch((err) => {
             logger.error(`ttvLiveHeartbeat() failed to insert new video to database.\n${err.toString()}`);
         });
     }
     if (updateData.length > 0) {
         logger.info("ttvLiveHeartbeat() updating existing videos...");
         const dbUpdateCommit = updateData.map((new_update) => (
-            // @ts-ignore
-            TwitchVideo.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
+            VideosData.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
                 if (err) {
                     // @ts-ignore
                     logger.error(`ttvLiveHeartbeat() failed to update ${new_update.id}, ${err.toString()}`);
@@ -230,74 +208,71 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, filtersRun: FiltersC
             logger.error(`ttvLiveHeartbeat() failed to update databases, ${err.toString()}`);
         })
     }
+    logger.info("ttvLiveHeartbeat() heartbeat updated!");
 }
 
 export async function ttvChannelsStats(ttvAPI: TwitchHelix, filtersRun: FiltersConfig) {
-    let requestConfig: any[] = [];
-    if (filtersRun["exclude"]["groups"].length > 0) {
-        requestConfig.push({
-            "group": {"$nin": filtersRun["exclude"]["groups"]}
-        });
-    }
-    if (filtersRun["include"]["groups"].length > 0) {
-        requestConfig.push({
-            "group": {"$in": filtersRun["include"]["groups"]}
-        });
-    }
-    if (filtersRun["exclude"]["channel_ids"].length > 0) {
-        requestConfig.push({
-            "id": {"$nin": filtersRun["exclude"]["channel_ids"]}
-        });
-    }
-    if (filtersRun["include"]["channel_ids"].length > 0) {
-        requestConfig.push({
-            "id": {"$in": filtersRun["include"]["channel_ids"]}
-        });
-    }
-
-    let findReq: any = {};
-    if (requestConfig.length > 0) {
-        findReq["$and"] = requestConfig;
-    }
-
     logger.info("ttvChannelsStats() fetching channels data...");
-    let channels: TTVChannelProps[] = (await TwitchChannel.find(findReq));
+    let channels = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [{"platform": {"$eq": "twitch"}}]);
     if (channels.length < 1) {
         logger.warn("ttvChannelsStats() no registered channels");
         return;
     }
+    logger.info("ttvChannelsStats() fetching history data...");
+    let channels_history_data = await ChannelStatsHistData.filteredFind(filtersRun["exclude"], filtersRun["include"], {
+        "id": 1,
+        "platform": 1,
+    }, [{"platform": {"$eq": "twitch"}}]);
 
     let channelIds: string[] = channels.map(res => res.id);
     logger.info("ttvChannelsStats() fetching to API...");
     let twitch_results: any[] = await ttvAPI.fetchChannels(channelIds);
     logger.info("ttvChannelsStats() parsing API results...");
     let updateData = [];
+    let historySet: HistoryMap[] = [];
     let currentTimestamp = moment.tz("UTC").unix();
     for (let i = 0; i < twitch_results.length; i++) {
         let result = twitch_results[i];
         logger.info(`ttvChannelsStats() parsing and fetching followers and videos ${result["login"]}`);
         let followersData = await ttvAPI.fetchChannelFollowers(result["id"]);
         let videosData = (await ttvAPI.fetchChannelVideos(result["id"])).filter(vid => vid["viewable"] === "public");
-        let historyData: any[] = [];
-        let oldData = _.find(channels, {"id": result["login"]});
-        if (typeof oldData !== "undefined") {
-            // concat old set
-            let oldHistoryData = _.get(oldData, "history", []);
-            if (oldHistoryData.length === 0) {
-                logger.error(`ttvChannelsStats() missing history data in old data for ID ${result["login"]}`);
-            } else {
-                historyData = _.concat(historyData, oldHistoryData);
-            }
+
+        let chData = _.find(channels, {"id": result["login"]});
+        let group: string;
+        if (typeof chData !== "undefined") {
+            group = chData["group"];
+        } else {
+            group = "unknown";
+        }
+        let oldHistory = _.find(channels_history_data, {"id": result["login"]});
+        if (typeof oldHistory === "undefined") {
+            historySet.push({
+                id: result["login"],
+                history: {
+                    timestamp: currentTimestamp,
+                    followerCount: followersData["total"],
+                    viewCount: result["view_count"],
+                    videoCount: videosData.length,
+                },
+                mod: "insert",
+                group: group
+            })
+        } else {
+            historySet.push({
+                id: result["login"],
+                history: {
+                    timestamp: currentTimestamp,
+                    followerCount: followersData["total"],
+                    viewCount: result["view_count"],
+                    videoCount: videosData.length,
+                },
+                mod: "update",
+                group: group
+            })
         }
 
-        historyData.push({
-            timestamp: currentTimestamp,
-            followerCount: followersData["total"],
-            viewCount: result["view_count"],
-            videoCount: videosData.length,
-        })
         // @ts-ignore
-        let mappedUpdate: TTVChannelProps = {
+        let mappedUpdate: ChannelsProps = {
             "id": result["login"],
             "name": result["display_name"],
             "description": result["description"],
@@ -305,7 +280,6 @@ export async function ttvChannelsStats(ttvAPI: TwitchHelix, filtersRun: FiltersC
             "followerCount": followersData["total"],
             "viewCount": result["view_count"],
             "videoCount": videosData.length,
-            "history": historyData
         }
         updateData.push(mappedUpdate);
     }
@@ -313,8 +287,7 @@ export async function ttvChannelsStats(ttvAPI: TwitchHelix, filtersRun: FiltersC
     if (updateData.length > 0) {
         logger.info("ttvChannelsStats() updating channels...");
         const dbUpdateCommit = updateData.map((new_update) => (
-            // @ts-ignore
-            TwitchChannel.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
+            ChannelsData.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
                 if (err) {
                     // @ts-ignore
                     logger.error(`ttvChannelsStats() failed to update ${new_update.id}, ${err.toString()}`);
@@ -328,4 +301,37 @@ export async function ttvChannelsStats(ttvAPI: TwitchHelix, filtersRun: FiltersC
             logger.error(`ttvChannelsStats() failed to update databases, ${err.toString()}`);
         })
     }
+
+    // Update history data
+    logger.info("ttvChannelsStats() updating/inserting channel stats!");
+    let histDBUpdate = historySet.filter((o) => o.mod === "update").map((new_upd) => {
+        ChannelStatsHistData.updateOne({"id": {"$eq": new_upd.id}, "platform": {"$eq": "twitch"}}, {"$addToSet": {history: new_upd["history"]}}, (err) => {
+            if (err) {
+                logger.error(`ttvChannelsStats() failed to update history ${new_upd.id}, ${err.toString()}`);
+            } else {
+                return;
+            }
+        })
+    });
+    let insertDBUpdateList = historySet.filter((o) => o.mod === "insert").map((peta) => {
+        return {
+            id: peta["id"],
+            history: [peta["history"]],
+            group: peta["group"],
+            platform: "twitch",
+        }
+    })
+
+    if (insertDBUpdateList.length > 1) {
+        await ChannelStatsHistData.insertMany(insertDBUpdateList).catch((err) => {
+            logger.error(`ttvChannelsStats() failed to insert new history to databases, ${err.toString()}`);
+        })
+    }
+    if (histDBUpdate.length > 1) {
+        await Promise.all(histDBUpdate).catch((err) => {
+            logger.error(`ttvChannelsStats() failed to update history databases, ${err.toString()}`);
+        });
+    }
+
+    logger.info("ttvChannelsStats() channels stats updated!");
 }

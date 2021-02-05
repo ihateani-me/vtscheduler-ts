@@ -1,14 +1,24 @@
-import axios, { AxiosInstance } from "axios";
-import { YoutubeChannel, YoutubeVideo, YTChannelProps, YTVideoProps } from "../models/youtube";
-import { logger } from "../utils/logger";
-import { version as vt_version } from "../../package.json";
 import _ from "lodash";
+import axios, { AxiosInstance } from "axios";
+import moment from "moment-timezone";
+
+import { logger } from "../utils/logger";
 import { YTRotatingAPIKey } from "../utils/ytkey_rotator";
 import { fallbackNaN, isNone } from "../utils/swissknife";
-import moment from "moment-timezone";
-import { FiltersConfig } from "../models";
 import { resolveDelayCrawlerPromises } from "../utils/crawler";
-import { ViewersData } from "../models/extras";
+
+import {
+    FiltersConfig,
+    VideosData,
+    VideoProps,
+    ChannelsData,
+    ChannelsProps,
+    ChannelStatsHistData,
+    ViewersData,
+    HistoryMap
+} from "../models";
+
+import { version as vt_version } from "../../package.json";
 
 interface AnyDict {
     [key: string]: any;
@@ -110,44 +120,14 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: F
         }
     })
 
-    let requestConfig: any[] = [];
-    if (filtersRun["exclude"]["groups"].length > 0) {
-        requestConfig.push({
-            "group": {"$nin": filtersRun["exclude"]["groups"]}
-        });
-    }
-    if (filtersRun["include"]["groups"].length > 0) {
-        requestConfig.push({
-            "group": {"$in": filtersRun["include"]["groups"]}
-        });
-    }
-    if (filtersRun["exclude"]["channel_ids"].length > 0) {
-        requestConfig.push({
-            "id": {"$nin": filtersRun["exclude"]["channel_ids"]}
-        });
-    }
-    if (filtersRun["include"]["channel_ids"].length > 0) {
-        requestConfig.push({
-            "id": {"$in": filtersRun["include"]["channel_ids"]}
-        });
-    }
-
-    let findReq: any = {};
-    if (requestConfig.length > 0) {
-        findReq["$and"] = requestConfig;
-    }
-
     logger.info("youtubeVideoFeeds() fetching old video data...");
-    let archive: YTVideoProps[] = (await YoutubeVideo.find(findReq));
+    let archive = await VideosData.filteredFind(filtersRun["exclude"], filtersRun["include"], {"id": 1, "channel_id": 1}, [{"platform": {"$eq": "youtube"}}]);
     let fetched_video_ids: FetchedVideo = _.chain(archive)
                                             .groupBy((g) => g.channel_id)
                                             .mapValues((o) => _.map(o, (m) => m.id))
                                             .value();
     logger.info("youtubeVideoFeeds() fetching channels data...");
-    let YTChannelAgro = [];
-    YTChannelAgro.push({"$match": findReq})
-    YTChannelAgro.push({"$project": {"history": 0}});
-    let channels: YTChannelProps[] = await YoutubeChannel.aggregate(YTChannelAgro);
+    let channels: ChannelsProps[] = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], {"id": 1, "group": 1}, [{"platform": {"$eq": "youtube"}}]);
 
     logger.info("youtubeVideoFeeds() creating job task for xml fetch...");
     const xmls_to_fetch = channels.map((channel) => (
@@ -322,7 +302,7 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: F
 
         let thumbs = getBestThumbnail(snippets["thumbnails"], video_id);
 
-        let finalData: YTVideoProps = {
+        let finalData: VideoProps = {
             id: video_id,
             title: title,
             status: video_type,
@@ -379,7 +359,7 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: F
 
     if (to_be_committed.length > 0) {
         logger.info(`youtubeVideoFeeds() inserting new videos to databases.`)
-        await YoutubeVideo.insertMany(to_be_committed).catch((err) => {
+        await VideosData.insertMany(to_be_committed).catch((err) => {
             logger.error(`youtubeVideoFeeds() failed to insert to database.\n${err.toString()}`);
         });
     }
@@ -393,36 +373,8 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
         }
     })
 
-    let requestConfig: any[] = [];
-    if (filtersRun["exclude"]["groups"].length > 0) {
-        requestConfig.push({
-            "group": {"$nin": filtersRun["exclude"]["groups"]}
-        });
-    }
-    if (filtersRun["include"]["groups"].length > 0) {
-        requestConfig.push({
-            "group": {"$in": filtersRun["include"]["groups"]}
-        });
-    }
-    if (filtersRun["exclude"]["channel_ids"].length > 0) {
-        requestConfig.push({
-            "id": {"$nin": filtersRun["exclude"]["channel_ids"]}
-        });
-    }
-    if (filtersRun["include"]["channel_ids"].length > 0) {
-        requestConfig.push({
-            "id": {"$in": filtersRun["include"]["channel_ids"]}
-        });
-    }
-    requestConfig.push({"status": {"$in": ["live", "upcoming"]}});
-
-    let findReq: any = {};
-    if (requestConfig.length > 0) {
-        findReq["$and"] = requestConfig;
-    }
-
     logger.info("youtubeLiveHeartbeat() fetching videos data...");
-    let video_sets: YTVideoProps[] = (await YoutubeVideo.find(findReq));
+    let video_sets = await VideosData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [{"platform": {"$eq": "youtube"}}]);
     if (video_sets.length < 1) {
         logger.warn(`youtubeLiveHeartbeat() skipping because no new live/upcoming`);
         return;
@@ -602,7 +554,7 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
 
         let thumbs = getBestThumbnail(snippets["thumbnails"], video_id);
 
-        let finalData: YTVideoProps = {
+        let finalData: VideoProps = {
             id: video_id,
             title: title,
             status: video_type,
@@ -716,7 +668,7 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
     if (to_be_committed.length > 0) {
         logger.info(`youtubeLiveHeartbeat() committing update...`);
         const dbUpdate = to_be_committed.map((new_update) => (
-            YoutubeVideo.findOneAndUpdate({ "id": { "$eq": new_update.id } }, new_update, null, (err) => {
+            VideosData.findOneAndUpdate({ "id": { "$eq": new_update.id } }, new_update, null, (err) => {
                 if (err) {
                     logger.error(`youtubeLiveHeartbeat() failed to update ${new_update.id}, ${err.toString()}`);
                 } else {
@@ -739,39 +691,17 @@ export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey, filtersRun
         }
     })
 
-    let requestConfig: any[] = [];
-    if (filtersRun["exclude"]["groups"].length > 0) {
-        requestConfig.push({
-            "group": {"$nin": filtersRun["exclude"]["groups"]}
-        });
-    }
-    if (filtersRun["include"]["groups"].length > 0) {
-        requestConfig.push({
-            "group": {"$in": filtersRun["include"]["groups"]}
-        });
-    }
-    if (filtersRun["exclude"]["channel_ids"].length > 0) {
-        requestConfig.push({
-            "id": {"$nin": filtersRun["exclude"]["channel_ids"]}
-        });
-    }
-    if (filtersRun["include"]["channel_ids"].length > 0) {
-        requestConfig.push({
-            "id": {"$in": filtersRun["include"]["channel_ids"]}
-        });
-    }
-
-    let findReq: any = {};
-    if (requestConfig.length > 0) {
-        findReq["$and"] = requestConfig;
-    }
-
-    logger.info("youtubeChannelsStats() fetching videos data...");
-    let channels_data: YTChannelProps[] = (await YoutubeChannel.find(findReq));
+    logger.info("youtubeChannelsStats() fetching channels data...");
+    let channels_data = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [{"platform": {"$eq": "youtube"}}]);
     if (channels_data.length < 1) {
         logger.warn(`youtubeChannelsStats() skipping because no registered channels`);
         return;
     }
+    logger.info("youtubeChannelsStats() fetching history data...");
+    let channels_history_data = await ChannelStatsHistData.filteredFind(filtersRun["exclude"], filtersRun["include"], {
+        "id": 1,
+        "platform": 1,
+    }, [{"platform": {"$eq": "youtube"}}])
 
     const chunked_channels_set = _.chunk(channels_data, 40);
     logger.info(`youtubeChannelsStats() checking channels with total of ${channels_data.length} channels (${chunked_channels_set.length} chunks)...`);
@@ -804,6 +734,7 @@ export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey, filtersRun
     }
 
     items_data = _.flattenDeep(items_data);
+    let historySet: HistoryMap[] = [];
     logger.info(`youtubeChannelsStats() preparing update...`);
     let currentTimestamp = moment.tz("UTC").unix();
     const to_be_committed = items_data.map((res_item) => {
@@ -819,7 +750,6 @@ export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey, filtersRun
             viewCount = 0,
             videoCount = 0;
 
-        let historyData: any[] = [];
 
         if (_.has(statistics, "subscriberCount")) {
             subsCount = fallbackNaN(parseInt, statistics["subscriberCount"], statistics["subscriberCount"]);
@@ -830,34 +760,51 @@ export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey, filtersRun
         if (_.has(statistics, "videoCount")) {
             videoCount = fallbackNaN(parseInt, statistics["videoCount"], statistics["videoCount"]);
         }
-        let oldData = _.find(channels_data, {"id": ch_id});
-        if (typeof oldData !== "undefined") {
-            // concat old set
-            let oldHistoryData = _.get(oldData, "history", []);
-            if (oldHistoryData.length === 0) {
-                logger.error(`youtubeChannelStats() missing history data in old data for ID ${ch_id}`);
-            } else {
-                historyData = _.concat(historyData, oldHistoryData);
-            }
+
+        let chData = _.find(channels_data, {"id": ch_id});
+        let group: string;
+        if (typeof chData !== "undefined") {
+            group = chData["group"];
+        } else {
+            group = "unknown";
         }
 
-        historyData.push({
-            timestamp: currentTimestamp,
-            subscriberCount: subsCount,
-            viewCount: viewCount,
-            videoCount: videoCount
-        })
+        let oldHistory = _.find(channels_history_data, {"id": ch_id});
+        if (typeof oldHistory === "undefined") {
+            historySet.push({
+                id: ch_id,
+                history: {
+                    timestamp: currentTimestamp,
+                    subscriberCount: subsCount,
+                    viewCount: viewCount,
+                    videoCount: videoCount
+                },
+                mod: "insert",
+                group: group
+            })
+        } else {
+            historySet.push({
+                id: ch_id,
+                history: {
+                    timestamp: currentTimestamp,
+                    subscriberCount: subsCount,
+                    viewCount: viewCount,
+                    videoCount: videoCount
+                },
+                mod: "update",
+                group: group
+            })
+        }
 
         // @ts-ignore
-        let finalData: YTChannelProps = {
+        let finalData: ChannelsProps = {
             id: ch_id,
             name: title,
             description: desc,
             thumbnail: thumbs,
             subscriberCount: subsCount,
             viewCount: viewCount,
-            videoCount: videoCount,
-            history: historyData,
+            videoCount: videoCount
         }
         return finalData;
     })
@@ -865,7 +812,7 @@ export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey, filtersRun
     if (to_be_committed.length > 0) {
         logger.info(`youtubeChannelsStats() committing update...`);
         const dbUpdate = to_be_committed.map((new_update) => (
-            YoutubeChannel.findOneAndUpdate({ "id": { "$eq": new_update.id } }, new_update, null, (err) => {
+            ChannelsData.findOneAndUpdate({ "id": { "$eq": new_update.id } }, new_update, null, (err) => {
                 if (err) {
                     logger.error(`youtubeChannelsStats() failed to update ${new_update.id}, ${err.toString()}`);
                 } else {
@@ -878,6 +825,37 @@ export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey, filtersRun
         })
     }
 
+    // Update history data
+    logger.info("youtubeChannelsStats() updating/inserting channel stats!");
+    let histDBUpdate = historySet.filter((o) => o.mod === "update").map((new_upd) => {
+        ChannelStatsHistData.update({"id": {"$eq": new_upd.id}, "platform": {"$eq": "youtube"}}, {"$addToSet": {history: new_upd["history"]}}, (err) => {
+            if (err) {
+                logger.error(`youtubeChannelsStats() failed to update history ${new_upd.id}, ${err.toString()}`);
+            } else {
+                return;
+            }
+        })
+    });
+    let insertDBUpdateList = historySet.filter((o) => o.mod === "insert").map((peta) => {
+        return {
+            id: peta["id"],
+            history: [peta["history"]],
+            group: peta["group"],
+            platform: "youtube",
+        }
+    })
+
+    if (insertDBUpdateList.length > 1) {
+        await ChannelStatsHistData.insertMany(insertDBUpdateList).catch((err) => {
+            logger.error(`youtubeChannelsStats() failed to insert new history to databases, ${err.toString()}`);
+        })
+    }
+    if (histDBUpdate.length > 1) {
+        await Promise.all(histDBUpdate).catch((err) => {
+            logger.error(`youtubeChannelsStats() failed to update history databases, ${err.toString()}`);
+        });
+    }
+
     logger.info("youtubeChannelsStats() channels stats updated!");
 }
 
@@ -888,36 +866,12 @@ export async function youtubeVideoMissingCheck(apiKeys: YTRotatingAPIKey, filter
         }
     })
 
-    let requestConfig: any[] = [];
-    if (filtersRun["exclude"]["groups"].length > 0) {
-        requestConfig.push({
-            "group": {"$nin": filtersRun["exclude"]["groups"]}
-        });
-    }
-    if (filtersRun["include"]["groups"].length > 0) {
-        requestConfig.push({
-            "group": {"$in": filtersRun["include"]["groups"]}
-        });
-    }
-    if (filtersRun["exclude"]["channel_ids"].length > 0) {
-        requestConfig.push({
-            "id": {"$nin": filtersRun["exclude"]["channel_ids"]}
-        });
-    }
-    if (filtersRun["include"]["channel_ids"].length > 0) {
-        requestConfig.push({
-            "id": {"$in": filtersRun["include"]["channel_ids"]}
-        });
-    }
-    requestConfig.push({"is_missing": {"$eq": true}});
-
-    let findReq: any = {};
-    if (requestConfig.length > 0) {
-        findReq["$and"] = requestConfig;
-    }
-
     logger.info("youtubeVideoMissingCheck() fetching missing videos data...");
-    let video_sets: YTVideoProps[] = (await YoutubeVideo.find(findReq));
+    let video_sets = await VideosData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [{
+        "is_missing": {"$eq": true}        
+    }, {
+        "platform": {"$eq": "youtube"}
+    }]);
     if (video_sets.length < 1) {
         logger.warn(`youtubeVideoMissingCheck() skipping because no missing video to check`);
         return;
@@ -1015,7 +969,7 @@ export async function youtubeVideoMissingCheck(apiKeys: YTRotatingAPIKey, filter
 
         let thumbs = getBestThumbnail(snippets["thumbnails"], video_id);
 
-        let finalData: YTVideoProps = {
+        let finalData: VideoProps = {
             id: video_id,
             title: title,
             status: video_type,
@@ -1034,7 +988,7 @@ export async function youtubeVideoMissingCheck(apiKeys: YTRotatingAPIKey, filter
     if (to_be_committed.length > 0) {
         logger.info(`youtubeVideoMissingCheck() committing update...`);
         const dbUpdate = to_be_committed.map((new_update) => (
-            YoutubeVideo.findOneAndUpdate({ "id": { "$eq": new_update.id } }, new_update, null, (err) => {
+            VideosData.findOneAndUpdate({ "id": { "$eq": new_update.id } }, new_update, null, (err) => {
                 if (err) {
                     logger.error(`youtubeVideoMissingCheck() failed to update ${new_update.id}, ${err.toString()}`);
                 } else {

@@ -1,12 +1,23 @@
-import axios from "axios";
-import { BilibiliChannel, BilibiliVideo, B2ChannelProps, B2VideoProps } from "../models/bilibili";
-import { logger } from "../utils/logger";
 import _ from "lodash";
-import { isNone } from "../utils/swissknife";
+import axios from "axios";
 import moment from "moment-timezone";
-import { FiltersConfig } from "../models";
+
+import { logger } from "../utils/logger";
+import { isNone } from "../utils/swissknife";
 import { resolveDelayCrawlerPromises } from "../utils/crawler";
 import { BiliIDwithGroup, fetchChannelsMid } from "../utils/biliapi";
+
+import {
+    FiltersConfig,
+    VideosData,
+    VideoProps,
+    ChannelsData,
+    ChannelsProps,
+    ChannelStatsHistData,
+    ChannelStatsHistProps,
+    ViewersData,
+    HistoryMap
+} from "../models";
 
 const CHROME_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36";
 
@@ -40,35 +51,13 @@ export async function bilibiliVideoFeeds(filtersRun: FiltersConfig) {
         }
     })
 
-    let requestConfig: any[] = [];
-    if (filtersRun["exclude"]["groups"].length > 0) {
-        requestConfig.push({
-            "group": {"$nin": filtersRun["exclude"]["groups"]}
-        });
-    }
-    if (filtersRun["include"]["groups"].length > 0) {
-        requestConfig.push({
-            "group": {"$in": filtersRun["include"]["groups"]}
-        });
-    }
-    if (filtersRun["exclude"]["channel_ids"].length > 0) {
-        requestConfig.push({
-            "id": {"$nin": filtersRun["exclude"]["channel_ids"]}
-        });
-    }
-    if (filtersRun["include"]["channel_ids"].length > 0) {
-        requestConfig.push({
-            "id": {"$in": filtersRun["include"]["channel_ids"]}
-        });
-    }
-
-    let findReq: any = {};
-    if (requestConfig.length > 0) {
-        findReq["$and"] = requestConfig;
-    }
-
     logger.info("bilibiliVideoFeeds() fetching channels data...");
-    let channels: B2ChannelProps[] = (await BilibiliChannel.find(findReq));
+    let channels: ChannelsProps[] = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], {
+        "id": 1,
+        "group": 1,
+    }, [
+        {"platform": {"$eq": "bilibili"}}
+    ]);
     if (channels.length < 1) {
         logger.warn("bilibiliVideoFeeds() no registered channels");
         return;
@@ -112,7 +101,7 @@ export async function bilibiliVideoFeeds(filtersRun: FiltersConfig) {
         return;
     }
     logger.info("bilibiliVideoFeeds() parsing new videos...");
-    let insertData: B2VideoProps[] = [];
+    let insertData: VideoProps[] = [];
     for (let i = 0; i < fetchedResults.length; i++) {
         let dataChunk = fetchedResults[i]["data"];
         let programInfo = dataChunk["program_infos"];
@@ -133,13 +122,17 @@ export async function bilibiliVideoFeeds(filtersRun: FiltersConfig) {
                     continue;
                 }
                 let genUUID = `bili${program["subscription_id"]}_${program["program_id"]}`;
-                let newVideo: B2VideoProps = {
+                let newVideo: VideoProps = {
                     id: genUUID,
                     room_id: program["room_id"].toString(),
                     title: program["title"],
                     status: "upcoming",
                     channel_id: program["ruid"].toString(),
-                    startTime: program["start_time"],
+                    timedata: {
+                        startTime: program["start_time"],
+                        // @ts-ignore
+                        endTime: null,
+                    },
                     // @ts-ignore
                     endTime: null,
                     // @ts-ignore
@@ -147,7 +140,7 @@ export async function bilibiliVideoFeeds(filtersRun: FiltersConfig) {
                     // @ts-ignore
                     peakViewers: null,
                     // @ts-ignore
-                    thumbnail: null,
+                    thumbnail: "https://p.ihateani.me/",
                     group: channelMap["group"],
                     platform: "bilibili"
                 }
@@ -158,10 +151,12 @@ export async function bilibiliVideoFeeds(filtersRun: FiltersConfig) {
 
     if (insertData.length > 0) {
         logger.info(`bilibiliVideoFeeds() inserting new videos to databases.`)
-        await BilibiliVideo.insertMany(insertData).catch((err) => {
+        await VideosData.insertMany(insertData).catch((err) => {
             logger.error(`bilibiliVideoFeeds() failed to insert to database.\n${err.toString()}`);
         });
     }
+
+    logger.info("bilibiliVideoFeeds() feeds updated!");
 }
 
 export async function bilibiliLiveHeartbeat(filtersRun: FiltersConfig) {
@@ -199,8 +194,8 @@ export async function bilibiliLiveHeartbeat(filtersRun: FiltersConfig) {
     }
 
     logger.info("twcastLiveHeartbeat() fetching channels and videos data...");
-    let video_sets: B2VideoProps[] = (await BilibiliVideo.find(findReq));
-    let channels: B2ChannelProps[] = (await BilibiliChannel.find(findReq));
+    let video_sets = await VideosData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [{"platform": {"$eq": "bilibili"}}]);
+    let channels = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], {"id": 1, "room_id": 1, "group": 1}, [{"platform": {"$eq": "bilibili"}}]);
     if (channels.length < 1) {
         logger.warn("bilibiliLiveHeartbeat() no registered channels");
         return;
@@ -283,16 +278,23 @@ export async function bilibiliLiveHeartbeat(filtersRun: FiltersConfig) {
     }
 
     logger.info("bilibiliLiveHeartbeat() checking old data for moving it to past streams...");
-    let oldData = video_sets.map((oldRes) => {
+    // @ts-ignore
+    let oldData: VideoProps[] = video_sets.map((oldRes) => {
         let updMap = _.find(updateData, {"id": oldRes["id"]});
         if (!isNone(updMap)) {
             return [];
         }
+        let endTime = moment.tz("UTC").unix();
+        let duration = endTime - updMap["timedata"]["startTime"];
         return {
             "id": oldRes["id"],
             "status": "past",
-            "startTime": oldRes["startTime"],
-            "endTime": moment.tz("UTC").unix(),
+            "timedata": {
+                "startTime": updMap["timedata"]["startTime"],
+                "endTime": endTime,
+                "duration": duration,
+            },
+            
         };
     });
     // @ts-ignore
@@ -301,15 +303,14 @@ export async function bilibiliLiveHeartbeat(filtersRun: FiltersConfig) {
 
     if (insertData.length > 0) {
         logger.info("bilibiliLiveHeartbeat() inserting new videos...");
-        await BilibiliVideo.insertMany(insertData).catch((err) => {
+        await VideosData.insertMany(insertData).catch((err) => {
             logger.error(`bilibiliLiveHeartbeat() failed to insert new video to database.\n${err.toString()}`);
         });
     }
     if (updateData.length > 0) {
         logger.info("bilibiliLiveHeartbeat() updating existing videos...");
         const dbUpdateCommit = updateData.map((new_update) => (
-            // @ts-ignore
-            BilibiliVideo.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
+            VideosData.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
                 if (err) {
                     // @ts-ignore
                     logger.error(`bilibiliLiveHeartbeat() failed to update ${new_update.id}, ${err.toString()}`);
@@ -323,42 +324,22 @@ export async function bilibiliLiveHeartbeat(filtersRun: FiltersConfig) {
             logger.error(`bilibiliLiveHeartbeat() failed to update databases, ${err.toString()}`);
         })
     }
+
+    logger.info("bilibiliLiveHeartbeat() heartbeat updated!");
 }
 
 export async function bilibiliChannelsStats(filtersRun: FiltersConfig) {
-    let requestConfig: any[] = [];
-    if (filtersRun["exclude"]["groups"].length > 0) {
-        requestConfig.push({
-            "group": {"$nin": filtersRun["exclude"]["groups"]}
-        });
-    }
-    if (filtersRun["include"]["groups"].length > 0) {
-        requestConfig.push({
-            "group": {"$in": filtersRun["include"]["groups"]}
-        });
-    }
-    if (filtersRun["exclude"]["channel_ids"].length > 0) {
-        requestConfig.push({
-            "id": {"$nin": filtersRun["exclude"]["channel_ids"]}
-        });
-    }
-    if (filtersRun["include"]["channel_ids"].length > 0) {
-        requestConfig.push({
-            "id": {"$in": filtersRun["include"]["channel_ids"]}
-        });
-    }
-
-    let findReq: any = {};
-    if (requestConfig.length > 0) {
-        findReq["$and"] = requestConfig;
-    }
-
     logger.info("bilibiliChannelsStats() fetching channels data...");
-    let channels: B2ChannelProps[] = (await BilibiliChannel.find(findReq));
+    let channels = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [{"platform": {"$eq": "bilibili"}}]);
     if (channels.length < 1) {
         logger.warn("bilibiliChannelsStats() no registered channels");
         return;
     }
+    logger.info("bilibiliChannelsStats() fetching history data...");
+    let channels_history_data = await ChannelStatsHistData.filteredFind(filtersRun["exclude"], filtersRun["include"], {
+        "id": 1,
+        "platform": 1,
+    }, [{"platform": {"$eq": "mildom"}}]);
 
     logger.info(`bilibiliChannelsStats() processing ${channels.length} channels`);
     const mapIdAndGroup: BiliIDwithGroup[] = channels.map((res) => {
@@ -370,6 +351,8 @@ export async function bilibiliChannelsStats(filtersRun: FiltersConfig) {
     const allFetchedResponses = await fetchChannelsMid(mapIdAndGroup);
     logger.info("bilibiliChannelsStats() parsing results...");
     let updateData = [];
+    let historySet: HistoryMap[] = [];
+    let currentTimestamp = moment.tz("UTC").unix();
     for (let i = 0; i < allFetchedResponses.length; i++) {
         const mapped_data = allFetchedResponses[i];
         let assignedData: UnpackedData = {};
@@ -405,6 +388,40 @@ export async function bilibiliChannelsStats(filtersRun: FiltersConfig) {
         let infoData = _.get(_.get(assignedData, "info", {}), "res", {});
         let cardData = _.get(_.get(assignedData, "card", {}), "res", {});
 
+        let chData = _.find(channels, {"id": mid});
+        let group: string;
+        if (typeof chData !== "undefined") {
+            group = chData["group"];
+        } else {
+            group = "unknown";
+        }
+        let oldHistory = _.find(channels_history_data, {"id": mid});
+        if (typeof oldHistory === "undefined") {
+            historySet.push({
+                // @ts-ignore
+                id: mid,
+                history: {
+                    timestamp: currentTimestamp,
+                    subscriberCount: cardData["follower"],
+                    videoCount: cardData["archive_count"],
+                },
+                mod: "insert",
+                group: group
+            })
+        } else {
+            historySet.push({
+                // @ts-ignore
+                id: mid,
+                history: {
+                    timestamp: currentTimestamp,
+                    subscriberCount: cardData["follower"],
+                    videoCount: cardData["archive_count"],
+                },
+                mod: "update",
+                group: group
+            })
+        }
+
         let updatedData = {
             "id": mid,
             "room_id": infoData["live_room"]["roomid"],
@@ -413,7 +430,7 @@ export async function bilibiliChannelsStats(filtersRun: FiltersConfig) {
             "subscriberCount": cardData["follower"],
             "videoCount": cardData["archive_count"],
             "thumbnail": infoData["face"],
-            "live": infoData["live_room"]["liveStatus"] === 1 ? true : false,
+            "is_live": infoData["live_room"]["liveStatus"] === 1 ? true : false,
         }
         updateData.push(updatedData);
     }
@@ -436,4 +453,37 @@ export async function bilibiliChannelsStats(filtersRun: FiltersConfig) {
             logger.error(`bilibiliChannelsStats() failed to update databases, ${err.toString()}`);
         })
     }
+
+    // Update history data
+    logger.info("bilibiliChannelsStats() updating/inserting channel stats!");
+    let histDBUpdate = historySet.filter((o) => o.mod === "update").map((new_upd) => {
+        ChannelStatsHistData.updateOne({"id": {"$eq": new_upd.id}, "platform": {"$eq": "bilibili"}}, {"$addToSet": {history: new_upd["history"]}}, (err) => {
+            if (err) {
+                logger.error(`bilibiliChannelsStats() failed to update history ${new_upd.id}, ${err.toString()}`);
+            } else {
+                return;
+            }
+        })
+    });
+    let insertDBUpdateList = historySet.filter((o) => o.mod === "insert").map((peta) => {
+        return {
+            id: peta["id"],
+            history: [peta["history"]],
+            group: peta["group"],
+            platform: "bilibili",
+        }
+    })
+
+    if (insertDBUpdateList.length > 1) {
+        await ChannelStatsHistData.insertMany(insertDBUpdateList).catch((err) => {
+            logger.error(`bilibiliChannelsStats() failed to insert new history to databases, ${err.toString()}`);
+        })
+    }
+    if (histDBUpdate.length > 1) {
+        await Promise.all(histDBUpdate).catch((err) => {
+            logger.error(`bilibiliChannelsStats() failed to update history databases, ${err.toString()}`);
+        });
+    }
+
+    logger.info("bilibiliChannelsStats() channels stats updated!");
 }
