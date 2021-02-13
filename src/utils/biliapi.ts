@@ -3,7 +3,7 @@ import axios, {AxiosInstance} from "axios";
 import { resolveDelayCrawlerPromises } from "./crawler";
 import { logger } from "./logger";
 
-const CHROME_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36";
+const CHROME_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.150 Safari/537.36";
 
 export interface BiliIDwithGroup {
     id: string
@@ -21,16 +21,22 @@ async function biliChainedRequsts(session: AxiosInstance, mid: string, group: st
         })
         .then((result) => {
             let res = result.data;
-            if (Math.abs(res) !== 0) {
+            if (Math.abs(res["code"]) !== 0) {
                 return {"is_error": true, "mid": mid, "res": {}, "url": url, "group": group};
             }
             return {"is_error": false, "mid": mid, "res": res["data"], "url": url, "group": group};
         }).catch((err) => {
-            logger.error(`biliChainedRequsts() failed to process ${url} for ID ${mid}, ${err.toString()}`);
+            if (err.response) {
+                let err_resp = err.response.data;
+                let err_msg = err_resp["message"] || "No message"
+                logger.error(`biliChainedRequsts() failed to process ${url} for ID ${mid}, got response ${err_resp["code"]}: ${err_msg}`);
+            } else {
+                logger.error(`biliChainedRequsts() failed to process ${url} for ID ${mid}, ${err.toString()}`);
+            }
             return {"is_error": true, "mid": mid, "res": {}, "url": url, "group": group};
         })
     ))
-    const wrapInDelay = resolveDelayCrawlerPromises(requestCallback, 500);
+    const wrapInDelay = resolveDelayCrawlerPromises(requestCallback, 350);
     const fetchedResults = await Promise.all(wrapInDelay);
     return fetchedResults;
 }
@@ -50,7 +56,7 @@ export async function fetchChannelsMid(mids: BiliIDwithGroup[]) {
             return [];
         })
     ));
-    const wrapInDelay = resolveDelayCrawlerPromises(fetchChannels, 500);
+    const wrapInDelay = resolveDelayCrawlerPromises(fetchChannels, 750);
     const parsedResults = await Promise.all(wrapInDelay);
     const cleanedResults: {
         is_error: boolean;
