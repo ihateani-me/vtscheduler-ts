@@ -10,10 +10,6 @@ import * as Tasks from "./tasks";
 
 import config from "./config.json";
 
-import axios from 'axios';
-import { readFileSync } from "fs";
-import { join } from "path";
-
 let mongouri = config.mongodb.uri;
 if (mongouri.endsWith("/")) {
     mongouri = mongouri.slice(0, -1);
@@ -135,34 +131,3 @@ function emptyData(t: any) {
     }
     logger.info(`scheduler() running ${totalWorkers} workers...`);
 })();
-
-const PAYLOAD_NO = readFileSync(join(__dirname, "worker.num")).toString();
-
-async function announceDiscord(signal: string) {
-    try {
-        let requestPayload = {
-            "content": `**vtfarm-t${PAYLOAD_NO}**\nGot signal ${signal} in Heroku, please check it!`
-        }
-        await axios.post(
-            "https://discord.com/api/webhooks/803213143517298688/GU-inLQ440Jix-UjJI1xzPAC2Cv2j-H0SyYtE54OHuQt4mQ1TsDa1cg5-UvRhvljm1mm",
-            requestPayload,
-            {
-                headers: {
-                    "Content-Type": "application/json"
-                }
-            }
-        )
-    } catch (e) {
-        logger.error("Failed to announce to discord, please check!");
-    }
-}
-
-process.on("SIGTERM", function () {
-    mongoose.disconnect();
-    announceDiscord("SIGTERM").then(() => {
-        logger.info("Shutdown announced to Discord!");
-    }).catch((err) => {
-        logger.error("Failed to announce to discord");
-        console.error(err);
-    })
-})
