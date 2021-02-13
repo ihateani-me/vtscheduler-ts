@@ -115,5 +115,7 @@ build/
 !database/**/*.ts
 !**/*.d.ts
 
+src/index_priv.ts
+
 # Dumped data from scrapped website
 _dumps/
