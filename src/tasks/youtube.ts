@@ -7,6 +7,7 @@ export class YouTubeTasks {
     private isRun1: boolean
     private isRun2: boolean
     private isRun3: boolean
+    private isRun4: boolean
 
     filtersUsage: FiltersConfig
     ytKeys: YTRotatingAPIKey
@@ -19,6 +20,8 @@ export class YouTubeTasks {
         this.isRun2 = false;
         // Channels
         this.isRun3 = false;
+        // Missing
+        this.isRun4 = false;
 
         this.filtersUsage = filtersUsage;
         this.ytKeys = ytKeys;
@@ -57,11 +60,11 @@ export class YouTubeTasks {
     }
 
     async handleYTMissing() {
-        if (this.isRun2) {
+        if (this.isRun4) {
             logger.warn("handleYTMissing() there's still a running task of this, cancelling this run...");
             return;
         }
-        this.isRun2 = true;
+        this.isRun4 = true;
         logger.info("handleYTMissing() executing job...");
         try {
             await youtubeVideoMissingCheck(this.ytKeys, this.filtersUsage);
@@ -69,7 +72,7 @@ export class YouTubeTasks {
             logger.error(`handleYTMissing() an error occured while processing the task: ${e.toString()}`);
             console.error(e);
         }
-        this.isRun2 = false;
+        this.isRun4 = false;
     }
 
     async handleYTLive() {
