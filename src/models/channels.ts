@@ -30,6 +30,7 @@ const ChannelStatsHistorySchema = createSchema(
             subscriberCount: Type.number(),
             viewCount: Type.number(),
             videoCount: Type.number(),
+            level: Type.number(),
             followerCount: Type.number(), // TWCast/Mildom specific
         }),
         group: Type.string({required: true}),
