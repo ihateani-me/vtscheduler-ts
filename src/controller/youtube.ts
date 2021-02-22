@@ -882,7 +882,7 @@ export async function youtubeVideoMissingCheck(apiKeys: YTRotatingAPIKey, filter
     const items_data_promises = chunked_video_set.map((chunks, idx) => (
         session.get("https://www.googleapis.com/youtube/v3/videos", {
             params: {
-                part: "snippet,liveStreamingDetails",
+                part: "snippet,liveStreamingDetails,contentDetails",
                 id: _.join(_.map(chunks, "id"), ","),
                 maxResults: 50,
                 key: apiKeys.get()
@@ -910,7 +910,7 @@ export async function youtubeVideoMissingCheck(apiKeys: YTRotatingAPIKey, filter
     }
     items_data = _.flattenDeep(items_data);
     logger.info(`youtubeVideoMissingCheck() preparing update...`);
-    let to_be_committed = items_data.map((res_item) => {
+    let commitPromises = items_data.map(async (res_item) => {
         let video_id = res_item["id"];
         let video_type;
         if (!_.has(res_item, "liveStreamingDetails")) {
@@ -934,37 +934,108 @@ export async function youtubeVideoMissingCheck(apiKeys: YTRotatingAPIKey, filter
 
         let title = snippets["title"];
 
+        let publishedAt = snippets["publishedAt"];
+        let contentDetails = _.get(res_item, "contentDetails", {});
+
         let start_time = null;
         let ended_time = null;
+        let scheduled_start_time = null;
         if (_.has(livedetails, "scheduledStartTime")) {
-            start_time = moment.tz(livedetails["scheduledStartTime"], "UTC").unix();
-        } else if (_.has(livedetails, "actualStartTime")) {
+            scheduled_start_time = moment.tz(livedetails["scheduledStartTime"], "UTC").unix();
+        }
+        if (_.has(livedetails, "actualStartTime")) {
             start_time = moment.tz(livedetails["actualStartTime"], "UTC").unix();
+            scheduled_start_time = moment.tz(livedetails["scheduledStartTime"], "UTC").unix();
         }
         if (_.has(livedetails, "actualEndTime")) {
             ended_time = moment.tz(livedetails["actualEndTime"], "UTC").unix();
             video_type = "past";
         }
 
-        let viewers = null;
-        if (_.has(livedetails, "concurrentViewers")) {
-            viewers = fallbackNaN(parseInt, livedetails["concurrentViewers"], livedetails["concurrentViewers"]);
+        let duration = null;
+        let lateness = null;
+        if (start_time && ended_time) {
+            duration = ended_time - start_time;
+        }
+        if (start_time && scheduled_start_time) {
+            lateness = start_time - scheduled_start_time;
+        }
+        if (video_type === "upcoming") {
+            start_time = scheduled_start_time;
         }
 
-        let old_data = _.find(video_sets, { "id": video_id });
-        let old_peak_viewers = old_data?.peakViewers;
-        let new_peak: number;
-        if (typeof old_peak_viewers === "number" && typeof viewers === "number") {
-            if (viewers > old_peak_viewers) {
-                new_peak = viewers;
-            } else {
-                new_peak = old_peak_viewers;
+        let oldData = _.find(video_sets, { "id": video_id });
+        let currentViewers = _.get(oldData, "viewers", null);
+        let currentPeakViewers = _.get(oldData, "peakViewers", null);
+        let viewersData = _.get(livedetails, "concurrentViewers", undefined);
+        if (typeof viewersData !== "undefined") {
+            viewersData = fallbackNaN(parseInt, viewersData, viewersData);
+            currentViewers = viewersData;
+        }
+        if (!_.isNull(currentPeakViewers) && !_.isNull(currentViewers)) {
+            if (currentViewers > currentPeakViewers) {
+                currentPeakViewers = currentViewers
             }
-        } else if (typeof viewers === "number") {
-            new_peak = viewers;
-        } else {
-            // @ts-ignore
-            new_peak = null;
+        } else if (_.isNull(currentPeakViewers) && !_.isNull(currentViewers)) {
+            currentPeakViewers = currentViewers;
+        }
+
+        // check if premiere
+        let is_premiere = _.get(oldData, "is_premiere", undefined);
+        if (["live", "upcoming"].includes(video_type) && isNone(is_premiere)) {
+            // https://en.wikipedia.org/wiki/ISO_8601#Durations
+            // Youtube themselves decided to use P0D if there's no duration
+            let iso86010S = ["P0D", "PT0S"];
+            let durationTotal = _.get(contentDetails, "duration", undefined);
+            if (typeof durationTotal === "string") {
+                if (!iso86010S.includes(durationTotal)) {
+                    is_premiere = true;
+                } else {
+                    is_premiere = false;
+                }
+            }
+        }
+
+        if (video_type === "live" && typeof currentViewers === "number") {
+            let viewersDataArrays: {
+                timestamp: number;
+                viewers?: number | undefined;
+            }[] = [];
+            let currentViewersData = await ViewersData.findOne({"id": {"$eq": video_id}}).then((doc) => {
+                return doc;
+            }).catch((err) => {
+                return undefined;
+            });
+            if (typeof currentViewersData !== "undefined" && !_.isNull(currentViewersData)) {
+                viewersDataArrays = _.get(currentViewersData, "viewersData", []);
+                viewersDataArrays.push({
+                    timestamp: moment.tz("UTC").unix(),
+                    viewers: currentViewers,
+                });
+                let viewUpdData = {
+                    "id": currentViewersData["id"],
+                    "viewersData": viewersDataArrays
+                }
+                try {
+                    await ViewersData.updateOne({"id": {"$eq": currentViewersData["id"]}}, viewUpdData);
+                } catch (e) {
+                    logger.error(`youtubeVideoMissingCheck() Failed to update viewers data for ID ${video_id}, ${e.toString()}`);
+                }
+            } else {
+                viewersDataArrays.push({
+                    timestamp: moment.tz("UTC").unix(),
+                    viewers: currentViewers,
+                });
+                let viewNewData = {
+                    "id": video_id,
+                    "viewersData": viewersDataArrays,
+                    "group": _.get(oldData, "group", "unknown"),
+                    "platform": "youtube"
+                }
+                await ViewersData.insertMany([viewNewData]).catch((err) => {
+                    logger.error(`youtubeVideoMissingCheck() Failed to add viewers data for ID ${video_id}, ${err.toString()}`);
+                })
+            }
         }
 
         let thumbs = getBestThumbnail(snippets["thumbnails"], video_id);
@@ -973,17 +1044,58 @@ export async function youtubeVideoMissingCheck(apiKeys: YTRotatingAPIKey, filter
             id: video_id,
             title: title,
             status: video_type,
+            timedata: {
+                publishedAt: publishedAt,
+                // @ts-ignore
+                startTime: start_time,
+                // @ts-ignore
+                endTime: ended_time,
+                // @ts-ignore
+                scheduledStartTime: scheduled_start_time,
+                // @ts-ignore
+                lateTime: lateness,
+                // @ts-ignore
+                duration: duration
+            },
             // @ts-ignore
-            startTime: start_time,
+            viewers: currentViewers,
             // @ts-ignore
-            endTime: ended_time,
-            viewers: viewers,
-            peakViewers: new_peak,
+            peakViewers: currentPeakViewers,
             thumbnail: thumbs,
             is_missing: false,
+            is_premiere: is_premiere,
+        }
+        if (video_type === "live") {
+            // check if it's a member stream by doing a very scuffed way to check :)
+            // this is even way more scuffed since I need to check if there's old data, and if it's already a boolean or not :)
+            let oldMembersData = _.get(oldData, "is_member", undefined);
+            if (typeof oldMembersData !== "boolean") {
+                // since the old data still doesn't contains or, set to `null`, do a check!
+                let liveChatId: string | undefined = _.get(livedetails, "activeLiveChatId", undefined);
+                if (typeof liveChatId !== "undefined") {
+                    let isMembers = await checkIfMembershipStream(session, apiKeys, liveChatId);
+                    // @ts-ignore
+                    finalData["is_member"] = isMembers;
+                }
+            }
+        }
+        if (video_type === "past") {
+            let collectViewersData = await ViewersData.findOne({"id": {"$eq": video_id}, "platform": {"$eq": "youtube"}})
+                                                        .then((doc) => {return doc})
+                                                        .catch(() => {return undefined});
+            if (typeof collectViewersData !== "undefined" && !_.isNull(collectViewersData)) {
+                let viewersStats: any[] = _.get(collectViewersData, "viewersData", []);
+                if (viewersStats.length > 0) {
+                    let viewersNum = _.map(viewersStats, "viewers");
+                    viewersNum = viewersNum.filter(v => typeof v === "number");
+                    let averageViewers = Math.round(_.sum(viewersNum) / viewersNum.length);
+                    finalData["averageViewers"] = isNaN(averageViewers) ? 0 : averageViewers;
+                }
+            }
         }
         return finalData;
     })
+    let to_be_committed = await Promise.all(commitPromises)
 
     if (to_be_committed.length > 0) {
         logger.info(`youtubeVideoMissingCheck() committing update...`);
