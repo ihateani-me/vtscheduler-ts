@@ -281,6 +281,8 @@ interface StreamScheduleGQL {
     startAt: string
     endAt: string
     title: string
+    channel_id: string
+    [key: string]: any
 }
 
 export class TwitchGQL {
@@ -341,7 +343,11 @@ export class TwitchGQL {
             // No schedules
             return [[], null];
         }
-        const scheduleSegments = _.get(schedulesNode, "segments", []);
+        let scheduleSegments: any[] = _.get(schedulesNode, "segments", []);
+        scheduleSegments = scheduleSegments.map((res) => {
+            res["channel_id"] = loginName;
+            return res;
+        })
         return [scheduleSegments, null];
     }
 }
