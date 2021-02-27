@@ -98,6 +98,10 @@ function emptyData(t: any) {
             scheduleJob({rule: config.intervals.twitch.live, tz: "Asia/Tokyo"}, async () => TTVTasks.handleTTVLive());
             totalWorkers++;
         }
+        if (typeof config.intervals.twitch.feeds === "string") {
+            scheduleJob({rule: config.intervals.twitch.feeds, tz: "Asia/Tokyo"}, async () => TTVTasks.handleTTVSchedules());
+            totalWorkers++;
+        }
         if (typeof config.intervals.twitch.channels === "string") {
             scheduleJob({rule: config.intervals.twitch.channels, tz: "Asia/Tokyo"}, async () => TTVTasks.handleTTVChannel());
             totalWorkers++;

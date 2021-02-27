@@ -273,3 +273,89 @@ export class TwitchHelix {
         return main_results;
     }
 }
+
+interface StreamScheduleGQL {
+    id: string
+    isCancelled: boolean
+    cancelledUntil: string | null
+    startAt: string
+    endAt: string
+    title: string
+    channel_id: string
+    [key: string]: any
+}
+
+export class TwitchGQL {
+    private session: AxiosInstance;
+    private gqlSchemas: string;
+
+    constructor() {
+        this.session = axios.create({
+            baseURL: "https://gql.twitch.tv",
+            headers: {
+                "Client-Id": "kimne78kx3ncx6brgo4mv6wki5h1ko",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.190 Safari/537.36",
+                "Content-Type": "application/json"
+            }
+        })
+
+        this.gqlSchemas = `query StreamSchedule($login:String,$startDate:Time) {
+            user(login:$login) {
+                channel {
+                    schedule {
+                        id
+                        segments(startingWeekday:"MONDAY",relativeDate:$startDate) {
+                            id
+                            isCancelled
+                            cancelledUntil
+                            startAt
+                            endAt
+                            title
+                        }
+                    }
+                }
+            }
+        }`;
+    }
+
+    async getSchedules(loginName: string, overrideTime?: string): Promise<[StreamScheduleGQL[], any]> {
+        // sample: 2021-02-28T16:59:59.059Z
+        const currentTime = moment.utc();
+        const relativeTime = currentTime.format("YYYY-MM-DD[T]HH:mm:ss.SSS[Z]");
+        const variables = {
+            "login": loginName,
+            "startDate": isNone(overrideTime) ? relativeTime : overrideTime,
+        }
+
+        let response: AxiosResponse<any>;
+        try {
+            response = await this.session.post("/gql", {
+                query: this.gqlSchemas,
+                variables: variables,
+                operationName: "StreamSchedule",
+            });
+        } catch (err) {
+            logger.error(`twitchGQL.getSchedules() failed to fetch schedule for ${loginName}, ${err.toString()}`);
+            return [[], err];
+        }
+
+        const schedulesNode = _.get(response.data, "data.user.channel.schedule");
+        if (isNone(schedulesNode)) {
+            // No schedules
+            return [[], null];
+        }
+        let scheduleSegments: StreamScheduleGQL[] = _.get(schedulesNode, "segments", []);
+        if (isNone(scheduleSegments)) {
+            return [[], null]
+        }
+        if (scheduleSegments.length > 0) {
+            scheduleSegments = scheduleSegments.map((res) => {
+                res["channel_id"] = loginName;
+                return res;
+            });
+            // Dont go pass the current hour :)
+            scheduleSegments = scheduleSegments.filter((e) => moment.utc(e.startAt).isAfter(currentTime, "hour"));
+        }
+        return [scheduleSegments, null];
+    }
+}
