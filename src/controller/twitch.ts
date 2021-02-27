@@ -256,8 +256,8 @@ export async function ttvLiveSchedules(ttvAPI: TwitchGQL, filtersRun: FiltersCon
         e => ["live", "past"].includes(e.status)
     ).map(e => e.schedule_id).filter(e => typeof e === "string");
     const fetchedScheduleIds: string[] = videoSets.filter(e => e.status === "upcoming").map(e => e.id);
-    const combinedSchedulesIds: string[] = _.concat(currentLiveAndPast, fetchedScheduleIds);
-    logger.info("ttvLiveHeartbeat() fetching to API...");
+    const combinedSchedulesIds: string[] = _.uniq(_.concat(currentLiveAndPast, fetchedScheduleIds));
+    logger.info("ttvLiveSchedules() fetching to API...");
     const fetchPromises = channelDatas.map((login) => (
         ttvAPI.getSchedules(login.id).then(([schedules, _e]) => {
             schedules = schedules.map((e) => {
@@ -268,7 +268,7 @@ export async function ttvLiveSchedules(ttvAPI: TwitchGQL, filtersRun: FiltersCon
             })
             return schedules;
         }).catch((err) => {
-            logger.error(`ttvLiveSchedules() an error occured while trying to fetch ${login} schedules, ${err.toString()}`);
+            logger.error(`ttvLiveSchedules() an error occured while trying to fetch ${login.id} schedules, ${err.toString()}`);
             return undefined;
         })
     ))
@@ -287,15 +287,23 @@ export async function ttvLiveSchedules(ttvAPI: TwitchGQL, filtersRun: FiltersCon
         }
         const startTime = moment.utc(twSchedule.startAt).unix();
         const endTime = moment.utc(twSchedule.endAt).unix();
+        let title = twSchedule.title;
+        if (isNone(title, true)) {
+            title = `${twSchedule["channel_id"]} Scheduled Stream`;
+        }
+        let thumbnail = twSchedule["thumbnail"];
+        if (isNone(thumbnail, true)) {
+            thumbnail = "https://assets.help.twitch.tv/Glitch_Purple_RGB.png";
+        }
         // @ts-ignore
         const twVideos: VideoProps = {
             id: twSchedule.id,
             schedule_id: twSchedule.id,
-            title: twSchedule.title,
+            title: title,
             status: "upcoming",
             channel_id: twSchedule.channel_id,
             channel_uuid: twSchedule["uuid"],
-            thumbnail: twSchedule["thumbnail"],
+            thumbnail: thumbnail,
             group: twSchedule["group"],
             platform: "twitch",
             timedata: {
@@ -307,7 +315,6 @@ export async function ttvLiveSchedules(ttvAPI: TwitchGQL, filtersRun: FiltersCon
         }
         insertData.push(twVideos);
     }
-
     if (insertData.length > 0) {
         logger.info("ttvLiveSchedules() inserting new videos...");
         await VideosData.insertMany(insertData).catch((err) => {
