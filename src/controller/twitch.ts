@@ -162,6 +162,9 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, filtersRun: FiltersC
         let endTime = moment.tz("UTC").unix();
         // @ts-ignore
         let publishedAt = moment.tz(oldRes["timedata"]["startTime"] * 1000, "UTC").format();
+        if (oldRes["status"] === "upcoming") {
+            continue;
+        }
 
         // @ts-ignore
         let updOldData: VideoProps = {
