@@ -320,7 +320,8 @@ export class TwitchGQL {
 
     async getSchedules(loginName: string, overrideTime?: string): Promise<[StreamScheduleGQL[], any]> {
         // sample: 2021-02-28T16:59:59.059Z
-        const relativeTime = moment.utc().format("YYYY-MM-DD[T]HH:mm:ss.SSS[Z]");
+        const currentTime = moment.utc();
+        const relativeTime = currentTime.format("YYYY-MM-DD[T]HH:mm:ss.SSS[Z]");
         const variables = {
             "login": loginName,
             "startDate": isNone(overrideTime) ? relativeTime : overrideTime,
@@ -343,7 +344,7 @@ export class TwitchGQL {
             // No schedules
             return [[], null];
         }
-        let scheduleSegments: any[] = _.get(schedulesNode, "segments", []);
+        let scheduleSegments: StreamScheduleGQL[] = _.get(schedulesNode, "segments", []);
         if (isNone(scheduleSegments)) {
             return [[], null]
         }
@@ -351,7 +352,9 @@ export class TwitchGQL {
             scheduleSegments = scheduleSegments.map((res) => {
                 res["channel_id"] = loginName;
                 return res;
-            })
+            });
+            // Dont go pass the current hour :)
+            scheduleSegments = scheduleSegments.filter((e) => moment.utc(e.startAt).isAfter(currentTime, "hour"));
         }
         return [scheduleSegments, null];
     }
