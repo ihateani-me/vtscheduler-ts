@@ -1,14 +1,16 @@
-import { ttvChannelsStats, ttvLiveHeartbeat } from "../controller";
+import { ttvChannelsStats, ttvLiveHeartbeat, ttvLiveSchedules } from "../controller";
 import { FiltersConfig } from "../models";
 import { logger } from "../utils/logger";
-import { TwitchHelix } from "../utils/twitchapi";
+import { TwitchGQL, TwitchHelix } from "../utils/twitchapi";
 
 export class TwitchTasks {
     private isRun1: boolean
     private isRun2: boolean
+    private isRun3: boolean
 
     filtersUsage: FiltersConfig
     ttvAPI: TwitchHelix
+    ttvGQL: TwitchGQL
 
     constructor(ttvAPI: TwitchHelix, filtersUsage: FiltersConfig) {
         logger.info("TwitchTasks() Initializing task handler...");
@@ -16,9 +18,12 @@ export class TwitchTasks {
         this.isRun1 = false;
         // Heartbeat
         this.isRun2 = false;
+        // Feeds/Schedules
+        this.isRun3 = false;
 
         this.filtersUsage = filtersUsage;
         this.ttvAPI = ttvAPI;
+        this.ttvGQL = new TwitchGQL();
     }
 
     async handleTTVChannel() {
@@ -51,5 +56,21 @@ export class TwitchTasks {
             console.error(e);
         }
         this.isRun2 = false;
+    }
+
+    async handleTTVSchedules() {
+        if (this.isRun3) {
+            logger.warn("handleTTVSchedules() there's still a running task of this, cancelling this run...");
+            return;
+        }
+        this.isRun3 = true;
+        logger.info("handleTTVSchedules() executing job...");
+        try {
+            await ttvLiveSchedules(this.ttvGQL, this.filtersUsage);
+        } catch (e) {
+            logger.error(`handleTTVSchedules() an error occured while processing the task: ${e.toString()}`);
+            console.error(e);
+        }
+        this.isRun3 = false;
     }
 }
