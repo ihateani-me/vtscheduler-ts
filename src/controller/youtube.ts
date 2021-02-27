@@ -380,6 +380,8 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
         logger.warn(`youtubeLiveHeartbeat() skipping because no new live/upcoming`);
         return;
     }
+    // Some got caught in this
+    video_sets = video_sets.filter(e => e.platform === "youtube");
 
     const chunked_video_set = _.chunk(video_sets, 40);
     logger.info(`youtubeLiveHeartbeat() checking heartbeat on ${video_sets.length} videos (${chunked_video_set.length} chunks)...`);
