@@ -339,15 +339,20 @@ export class TwitchGQL {
         }
 
         const schedulesNode = _.get(response.data, "data.user.channel.schedule");
-        if (schedulesNode === null) {
+        if (isNone(schedulesNode)) {
             // No schedules
             return [[], null];
         }
         let scheduleSegments: any[] = _.get(schedulesNode, "segments", []);
-        scheduleSegments = scheduleSegments.map((res) => {
-            res["channel_id"] = loginName;
-            return res;
-        })
+        if (isNone(scheduleSegments)) {
+            return [[], null]
+        }
+        if (scheduleSegments.length > 0) {
+            scheduleSegments = scheduleSegments.map((res) => {
+                res["channel_id"] = loginName;
+                return res;
+            })
+        }
         return [scheduleSegments, null];
     }
 }
