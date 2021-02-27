@@ -318,7 +318,7 @@ export async function mildomChannelsStats(mildomAPI: MildomAPI, filtersRun: Filt
         logger.info("mildomChannelStats() updating channels...");
         const dbUpdateCommit = updateData.map((new_update) => (
             // @ts-ignore
-            TwitchChannel.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
+            ChannelsData.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
                 if (err) {
                     // @ts-ignore
                     logger.error(`mildomChannelStats() failed to update ${new_update.id}, ${err.toString()}`);
