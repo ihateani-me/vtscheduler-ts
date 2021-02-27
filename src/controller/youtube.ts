@@ -61,6 +61,7 @@ function checkForErrorsAndRotate(apiReponses: any, apiKeys: YTRotatingAPIKey) {
         return false;
     }
     let firstErrors = errorsData[0];
+    logger.error(`checkForErrorsAndRotate() an API error occured, raw dump of it here: ${JSON.stringify(firstErrors, undefined, 2)} `);
     let errorReason = _.get(firstErrors, "reason", "unknown");
     if (errorReason === "rateLimitExceeded") {
         apiKeys.forceRotate();
