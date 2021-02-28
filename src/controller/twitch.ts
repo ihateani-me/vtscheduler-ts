@@ -37,15 +37,19 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, filtersRun: FiltersC
         let result = twitch_results[i];
 
         let start_time = moment.tz(result["started_at"], "UTC").unix();
+        // Exclusively used for user schedule check.
+        let currentTimeCheck = moment.utc().unix();
         let channel_map = _.find(channels, {"user_id": result["user_id"]});
         let thumbnail = result["thumbnail_url"];
         thumbnail = thumbnail.replace("{width}", "1280").replace("{height}", "720");
         let userScheduled = scheduled.filter(e => e["channel_uuid"] === result["user_id"]);
         // @ts-ignore
-        userScheduled = userScheduled.filter((video) => video["timedata"]["startTime"] <= start_time && start_time <= video["timedata"]["endTime"]);
+        userScheduled = userScheduled.filter((video) => video["timedata"]["startTime"] <= currentTimeCheck && currentTimeCheck <= video["timedata"]["endTime"]);
 
         let viewers = result["viewer_count"];
         let peakViewers = viewers;
+
+        let old_mappings = _.find(video_sets, {"id": result["id"]});
 
         let timeMapping: {[key: string]: any} = {
             startTime: start_time,
@@ -55,18 +59,21 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, filtersRun: FiltersC
         }
         let firstSchedule;
         if (userScheduled.length > 0) {
+            logger.info(`ttvLiveHeartbeat() detected scheduled data for ${channel_map?.id}, schedule_id is ${userScheduled[0].schedule_id}`);
             firstSchedule = userScheduled[0];
             scheduleToRemove.push(firstSchedule["id"]);
         }
         if (typeof firstSchedule !== "undefined") {
             let schedStart = firstSchedule["timedata"]["scheduledStartTime"];
+            let oldScheduled: (number | undefined) = _.get(old_mappings, "timedata.scheduledStartTime", undefined);
+            schedStart = isNone(oldScheduled) ? schedStart : oldScheduled;
             // @ts-ignore
             let lateTime = start_time - schedStart || NaN;
             timeMapping["scheduledStartTime"] = schedStart;
-            timeMapping["lateTime"] = lateTime;            
+            timeMapping["lateTime"] = lateTime;
+            logger.info(`ttvLiveHeartbeat() adding schedule data for ${channel_map?.id}`);
         }
 
-        let old_mappings = _.find(video_sets, {"id": result["id"]});
         if (isNone(old_mappings)) {
             // @ts-ignore
             let insertNew: VideoProps = {
@@ -105,6 +112,9 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, filtersRun: FiltersC
                 "peakViewers": peakViewers,
                 "thumbnail": thumbnail,
             };
+            if (typeof firstSchedule !== "undefined") {
+                updateOld["schedule_id"] = firstSchedule["schedule_id"];
+            }
             updateData.push(updateOld);
         }
 
@@ -234,7 +244,7 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, filtersRun: FiltersC
         })
     }
     if (scheduleToRemove.length > 0) {
-        logger.info("ttvLiveHeartbeat() removing old schedules...");
+        logger.info(`ttvLiveHeartbeat() removing ${scheduleToRemove.length} old schedules...`);
         await VideosData.deleteMany({"id": {"$in": scheduleToRemove}, "status": {"$eq": "upcoming"}}).catch((err: any) => {
             logger.error(`ttvLiveHearbeat() failed to remove old schedules, ${err.toString()}`);            
         })
