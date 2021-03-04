@@ -49,9 +49,8 @@ function emptyData(t: any) {
     let totalWorkers = 0;
     if (config.workers.youtube && config.youtube.api_keys.length > 0) {
         logger.info("scheduler() Enabling Youtube API Keys Rotator...");
-        let ytKeysAPI = new YTRotatingAPIKey(config.youtube.api_keys, config.youtube.rotation_rate);
-
-        let YTTasks = new Tasks.YouTubeTasks(ytKeysAPI, filtersConfig);
+        const ytKeysAPI = new YTRotatingAPIKey(config.youtube.api_keys, config.youtube.rotation_rate);
+        const YTTasks = new Tasks.YouTubeTasks(ytKeysAPI, filtersConfig);
 
         logger.info("scheduler() Adding jobs for youtube part...");
         if (typeof config.intervals.youtube.live === "string") {
@@ -74,24 +73,26 @@ function emptyData(t: any) {
 
     if (config.workers.bilibili) {
         logger.info("scheduler() Adding jobs for bilibili part...");
+        const B2Tasks = new Tasks.BilibiliTasks(filtersConfig);
+
         if (typeof config.intervals.bilibili.upcoming === "string") {
-            scheduleJob(config.intervals.bilibili.upcoming, async () => await Tasks.handleB2Feeds(filtersConfig));
+            scheduleJob({rule: config.intervals.bilibili.upcoming, tz: "Asia/Shanghai"}, async () => await B2Tasks.handleB2Feeds());
             totalWorkers++;
         }
         if (typeof config.intervals.bilibili.live === "string") {
-            scheduleJob(config.intervals.bilibili.live, async () => await Tasks.handleB2Live(filtersConfig));
+            scheduleJob({rule: config.intervals.bilibili.live, tz: "Asia/Shanghai"}, async () => await B2Tasks.handleB2Live());
             totalWorkers++;
         }
         if (typeof config.intervals.bilibili.channels === "string") {
-            scheduleJob(config.intervals.bilibili.channels, async () => await Tasks.handleB2Channel(filtersConfig));
+            scheduleJob({rule: config.intervals.bilibili.channels, tz: "Asia/Shanghai"}, async () => await B2Tasks.handleB2Channels());
             totalWorkers++;
         }
     }
 
     if (config.workers.twitch && !emptyData(config.twitch.client_id) && !emptyData(config.twitch.client_secret)) {
         logger.info("scheduler() Initializing Twitch Helix API...");
-        let ttvHelix = new TwitchHelix(config.twitch.client_id, config.twitch.client_secret);
-        let TTVTasks = new Tasks.TwitchTasks(ttvHelix, filtersConfig);
+        const ttvHelix = new TwitchHelix(config.twitch.client_id, config.twitch.client_secret);
+        const TTVTasks = new Tasks.TwitchTasks(ttvHelix, filtersConfig);
 
         logger.info("scheduler() Adding jobs for twitch part...");
         if (typeof config.intervals.twitch.live === "string") {
@@ -110,7 +111,7 @@ function emptyData(t: any) {
 
     if (config.workers.twitcasting) {
         logger.info("scheduler() Adding jobs for twitcasting part...");
-        let TWCastTasks = new Tasks.TwitcastingTasks(filtersConfig);
+        const TWCastTasks = new Tasks.TwitcastingTasks(filtersConfig);
         if (typeof config.intervals.twitcasting.live === "string") {
             scheduleJob({rule: config.intervals.twitcasting.live, tz: "Asia/Tokyo"}, async () => TWCastTasks.handleTWCastLive());
             totalWorkers++;
@@ -123,7 +124,7 @@ function emptyData(t: any) {
 
     if (config.workers.mildom) {
         logger.info("scheduler() Adding jobs for mildom part...");
-        let MildomTasks = new Tasks.MildomTasks(filtersConfig);
+        const MildomTasks = new Tasks.MildomTasks(filtersConfig);
         if (typeof config.intervals.mildom.live === "string") {
             scheduleJob({rule: config.intervals.mildom.live, tz: "Asia/Tokyo"}, async () => MildomTasks.handleMildomLive());
             totalWorkers++;
