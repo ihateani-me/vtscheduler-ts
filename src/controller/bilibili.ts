@@ -14,7 +14,6 @@ import {
     ChannelsData,
     ChannelsProps,
     ChannelStatsHistData,
-    ChannelStatsHistProps,
     ViewersData,
     HistoryMap
 } from "../models";
@@ -113,6 +112,9 @@ export async function bilibiliVideoFeeds(filtersRun: FiltersConfig) {
             let programSets = programInfo[programDate];
             for (let k = 0; k < programSets.length; k++) {
                 let program = programSets[k];
+                if (program?.expired === 1) {
+                    continue;
+                }
                 if (currentUTC >= program["start_time"]) {
                     continue;
                 }
@@ -121,17 +123,20 @@ export async function bilibiliVideoFeeds(filtersRun: FiltersConfig) {
                     logger.error(`bilibiliVideoFeeds() unexpected missing channel ${program["ruid"]} mapping while fetching video feeds`);
                     continue;
                 }
+                // 2 hours limit!
+                let end_time = program["start_time"] + (2 * 60 * 60);
                 let genUUID = `bili${program["subscription_id"]}_${program["program_id"]}`;
                 let newVideo: VideoProps = {
                     id: genUUID,
+                    schedule_id: genUUID,
                     room_id: program["room_id"].toString(),
                     title: program["title"],
                     status: "upcoming",
                     channel_id: program["ruid"].toString(),
                     timedata: {
+                        scheduledStartTime: program["start_time"],
                         startTime: program["start_time"],
-                        // @ts-ignore
-                        endTime: null,
+                        endTime: end_time,
                     },
                     // @ts-ignore
                     endTime: null,
@@ -201,6 +206,8 @@ export async function bilibiliLiveHeartbeat(filtersRun: FiltersConfig) {
         return;
     }
 
+    const scheduled = video_sets.filter(res => res.status === "upcoming");
+
     logger.info("bilibiliLiveHeartbeat() creating fetch jobs...");
     const channelPromises = channels.map((channel) => (
         session.get("https://api.live.bilibili.com/room/v1/Room/get_info", {
@@ -228,11 +235,13 @@ export async function bilibiliLiveHeartbeat(filtersRun: FiltersConfig) {
     logger.info("bilibiliLiveHeartbeat() parsing API results...");
     let insertData: any[] = [];
     let updateData: any[] = [];
+    let scheduleToRemove: string[] = [];
     for (let i = 0; i < fetchedResults.length; i++) {
         let rawResults = fetchedResults[i];
         let room_data = rawResults["data"];
         let group = rawResults["group"];
         let room_id = rawResults["room_id"];
+        const userId = room_data["uid"].toString();
 
         if (Object.keys(room_data).length < 1) {
             continue;
@@ -241,65 +250,183 @@ export async function bilibiliLiveHeartbeat(filtersRun: FiltersConfig) {
             continue;
         }
 
-        let thumbnail = room_data["user_cover"];
+        const parsedStart = moment.tz(room_data["live_time"], "Asia/Taiped");
+        let start_time = parsedStart.unix();
+        let userScheduled = scheduled.filter(e => e["channel_id"] === userId);
+        // @ts-ignore
+        userScheduled = userScheduled.filter((video) => video["timedata"]["startTime"] <= start_time && start_time <= video["timedata"]["endTime"]);
+
+        let timeMapping: {[key: string]: any} = {
+            startTime: start_time,
+            endTime: null,
+            duration: null,
+            publishedAt: parsedStart.format()
+        }
+        let firstSchedule;
+        if (userScheduled.length > 0) {
+            firstSchedule = userScheduled[0];
+            logger.info(`bilibiliLiveHeartbeat() detected schedule data for ${userId}, schedule_id is ${firstSchedule.schedule_id}`);
+            scheduleToRemove.push(firstSchedule["id"]);
+        }
+
+        if (typeof firstSchedule !== "undefined") {
+            let schedStart = firstSchedule["timedata"]["scheduledStartTime"];
+            // @ts-ignore
+            let lateTime = start_time - schedStart || NaN;
+            timeMapping["scheduledStartTime"] = schedStart;
+            timeMapping["lateTime"] = lateTime;
+            logger.info(`bilibiliLiveHeartbeat() adding schedule data for ${userId}`);
+        }
+
+        let thumbnail = room_data["user_cover"] || room_data["keyframe"] || room_data["background"];
         let viewers = room_data["online"];
-        let start_time = moment.tz(room_data["live_time"], "Asia/Taipei").unix();
+        let peakViewers = viewers;
         let generate_id = `bili${room_id}_${start_time}`;
         let old_mappings = _.find(video_sets, {"id": generate_id});
-        if (!isNone(old_mappings)) {
-            let updData = {
-                "id": generate_id,
-                "title": room_data["title"],
-                "startTime": start_time,
-                "endTime": null,
-                "viewers": viewers,
-                "peakViewers": viewers,
-                "status": "live",
-                "thumbnail": thumbnail
+        if (isNone(old_mappings)) {
+            // @ts-ignore
+            let insertNew: VideoProps = {
+                id: generate_id,
+                room_id: room_id,
+                title: room_data["title"],
+                status: "live",
+                timedata: timeMapping,
+                channel_id: userId,
+                viewers: viewers,
+                peakViewers: peakViewers,
+                thumbnail: thumbnail,
+                group: group,
+                platform: "bilibili"
             }
-            updateData.push(updData);
+            if (typeof firstSchedule !== "undefined") {
+                insertNew["schedule_id"] = firstSchedule["schedule_id"];
+            }
+            insertData.push(insertNew);
         } else {
-            let newData = {
+            peakViewers = _.get(old_mappings, "peakViewers", viewers);
+            if (viewers > peakViewers) {
+                peakViewers = viewers;
+            }
+            // @ts-ignore
+            const updateOld: VideoProps = {
+                id: generate_id,
+                title: room_data["title"],
+                timedata: timeMapping,
+                viewers: viewers,
+                peakViewers: peakViewers,
+                thumbnail: thumbnail,
+                platform: "bilibili"
+            }
+            if (typeof firstSchedule !== "undefined") {
+                updateOld["schedule_id"] = firstSchedule["schedule_id"];
+            }
+            updateData.push(updateOld);
+        }
+
+        // checks for viewers data
+        let viewersDataArrays: {
+            timestamp: number;
+            viewers?: number | undefined;
+        }[] = [];
+        let currentViewersData = await ViewersData.findOne({"id": {"$eq": generate_id}, "platform": {"$eq": "bilibili"}}).then((doc) => {
+            return doc;
+        }).catch((err: any) => {
+            return undefined;
+        });
+        if (typeof currentViewersData !== "undefined" && !_.isNull(currentViewersData)) {
+            viewersDataArrays = _.get(currentViewersData, "viewersData", []);
+            viewersDataArrays.push({
+                timestamp: moment.tz("UTC").unix(),
+                viewers: viewers,
+            });
+            let viewUpdData = {
+                "id": currentViewersData["id"],
+                "viewersData": viewersDataArrays
+            }
+            try {
+                await ViewersData.updateOne({"id": {"$eq": currentViewersData["id"]}}, viewUpdData);
+            } catch (e) {
+                logger.error(`bilibiliLiveHeartbeat() Failed to update viewers data for ID ${userId}, ${e.toString()}`);
+            }
+        } else {
+            viewersDataArrays.push({
+                timestamp: moment.tz("UTC").unix(),
+                viewers: viewers,
+            });
+            let viewNewData = {
                 "id": generate_id,
-                "room_id": room_id,
-                "title": room_data["title"],
-                "startTime": start_time,
-                "endTime": null,
-                "viewers": viewers,
-                "peakViewers": viewers,
-                "status": "live",
-                "channel_id": "",
-                "thumbnail": thumbnail,
+                "viewersData": viewersDataArrays,
                 "group": group,
                 "platform": "bilibili"
             }
-            insertData.push(newData);
+            await ViewersData.insertMany([viewNewData]).catch((err) => {
+                logger.error(`bilibiliLiveHeartbeat() Failed to add viewers data for ID ${userId}, ${err.toString()}`);
+            })
         }
     }
 
     logger.info("bilibiliLiveHeartbeat() checking old data for moving it to past streams...");
-    // @ts-ignore
-    let oldData: VideoProps[] = video_sets.map((oldRes) => {
+    let oldData: VideoProps[] = [];
+    for (let i = 0; i < video_sets.length; i++) {
+        let oldRes = video_sets[i];
         let updMap = _.find(updateData, {"id": oldRes["id"]});
         if (!isNone(updMap)) {
-            return [];
+            continue
         }
         let endTime = moment.tz("UTC").unix();
-        let duration = endTime - updMap["timedata"]["startTime"];
-        return {
+        if (oldRes["status"] === "upcoming") {
+            continue;
+        }
+
+        // @ts-ignore
+        let updOldData: VideoProps = {
             "id": oldRes["id"],
             "status": "past",
             "timedata": {
-                "startTime": updMap["timedata"]["startTime"],
+                "startTime": oldRes["timedata"]["startTime"],
                 "endTime": endTime,
-                "duration": duration,
-            },
-            
+                // @ts-ignore
+                "duration": endTime - oldRes["timedata"]["startTime"],
+                "publishedAt": oldRes["timedata"]["publishedAt"],
+            }
         };
-    });
-    // @ts-ignore
-    oldData = _.flattenDeep(oldData);
+        if (_.has(oldRes, "timedata.lateTime")) {
+            updOldData["timedata"]["lateTime"] = oldRes["timedata"]["lateTime"];
+        }
+        if (_.has(oldRes, "timedata.scheduledStartTime")) {
+            updOldData["timedata"]["scheduledStartTime"] = oldRes["timedata"]["scheduledStartTime"];
+        }
+
+        let collectViewersData = await ViewersData.findOne({"id": {"$eq": oldRes["id"]}, "platform": {"$eq": "bilibili"}})
+                                                    .then((doc) => {return doc})
+                                                    .catch(() => {return undefined});
+        if (typeof collectViewersData !== "undefined" && !_.isNull(collectViewersData)) {
+            let viewersStats: any[] = _.get(collectViewersData, "viewersData", []);
+            if (viewersStats.length > 0) {
+                let viewersNum = _.map(viewersStats, "viewers");
+                viewersNum = viewersNum.filter(v => typeof v === "number");
+                let averageViewers = Math.round(_.sum(viewersNum) / viewersNum.length);
+                updOldData["averageViewers"] = isNaN(averageViewers) ? 0 : averageViewers;
+            }
+        }
+        // @ts-ignore
+        oldData.push(updOldData);
+    }
+
     updateData = _.concat(updateData, oldData);
+    let dataWithAverageViewers = _.filter(updateData, (o) => _.has(o, "averageViewers"));
+    if (dataWithAverageViewers.length > 0) {
+        let viewersIdsToDelete = _.map(dataWithAverageViewers, "id");
+        if (viewersIdsToDelete.length > 0) {
+            logger.info(`bilibiliLiveHeartbeat() removing ${viewersIdsToDelete.length} viewers data...`);
+            try {
+                await ViewersData.deleteMany({"id": {"$in": viewersIdsToDelete}});
+            } catch (e) {
+                logger.error(`bilibiliLiveHeartbeat() failed to remove viewers data, ${e.toString()}`);
+            }
+            
+        }
+    }
 
     if (insertData.length > 0) {
         logger.info("bilibiliLiveHeartbeat() inserting new videos...");
@@ -322,6 +449,12 @@ export async function bilibiliLiveHeartbeat(filtersRun: FiltersConfig) {
         ))
         await Promise.all(dbUpdateCommit).catch((err) => {
             logger.error(`bilibiliLiveHeartbeat() failed to update databases, ${err.toString()}`);
+        })
+    }
+    if (scheduleToRemove.length > 0) {
+        logger.info(`bilibiliLiveHeartbeat() removing ${scheduleToRemove.length} old schedules...`);
+        await VideosData.deleteMany({"id": {"$in": scheduleToRemove}, "status": {"$eq": "upcoming"}}).catch((err: any) => {
+            logger.error(`ttvLiveHearbeat() failed to remove old schedules, ${err.toString()}`);            
         })
     }
 
