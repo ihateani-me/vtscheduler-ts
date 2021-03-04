@@ -188,6 +188,12 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, filtersRun: FiltersC
                 "publishedAt": publishedAt,
             }
         };
+        if (_.has(oldRes, "timedata.lateTime")) {
+            updOldData["timedata"]["lateTime"] = oldRes["timedata"]["lateTime"];
+        }
+        if (_.has(oldRes, "timedata.scheduledStartTime")) {
+            updOldData["timedata"]["scheduledStartTime"] = oldRes["timedata"]["scheduledStartTime"];
+        }
 
         let collectViewersData = await ViewersData.findOne({"id": {"$eq": oldRes["id"]}, "platform": {"$eq": "twitch"}})
                                                     .then((doc) => {return doc})
