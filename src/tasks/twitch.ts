@@ -2,11 +2,12 @@ import { ttvChannelsStats, ttvLiveHeartbeat, ttvLiveSchedules } from "../control
 import { FiltersConfig } from "../models";
 import { logger } from "../utils/logger";
 import { TwitchGQL, TwitchHelix } from "../utils/twitchapi";
+import { LockKey } from "./utils";
 
 export class TwitchTasks {
-    private isRun1: boolean
-    private isRun2: boolean
-    private isRun3: boolean
+    private channelLock: LockKey
+    private liveLock: LockKey
+    private videosLock: LockKey
 
     filtersUsage: FiltersConfig
     ttvAPI: TwitchHelix
@@ -14,12 +15,12 @@ export class TwitchTasks {
 
     constructor(ttvAPI: TwitchHelix, filtersUsage: FiltersConfig) {
         logger.info("TwitchTasks() Initializing task handler...");
-        // Channels
-        this.isRun1 = false;
+        // Feeds
+        this.videosLock = new LockKey();
         // Heartbeat
-        this.isRun2 = false;
-        // Feeds/Schedules
-        this.isRun3 = false;
+        this.liveLock = new LockKey();
+        // Channels
+        this.channelLock = new LockKey();
 
         this.filtersUsage = filtersUsage;
         this.ttvAPI = ttvAPI;
@@ -27,50 +28,53 @@ export class TwitchTasks {
     }
 
     async handleTTVChannel() {
-        if (this.isRun1) {
+        const locked = this.channelLock.lock();
+        if (!locked) {
             logger.warn("handleTTVChannel() there's still a running task of this, cancelling this run...");
             return;
         }
-        this.isRun1 = true;
         logger.info("handleTTVChannel() executing job...");
         try {
             await ttvChannelsStats(this.ttvAPI, this.filtersUsage);
         } catch (e) {
+            this.channelLock.unlock();
             logger.error(`handleTTVChannel() an error occured while processing the task: ${e.toString()}`);
             console.error(e);
         }
-        this.isRun1 = false;
+        this.channelLock.unlock();
     }
 
     async handleTTVLive() {
-        if (this.isRun2) {
+        const locked = this.liveLock.lock();
+        if (!locked) {
             logger.warn("handleTTVLive() there's still a running task of this, cancelling this run...");
             return;
         }
-        this.isRun2 = true;
         logger.info("handleTTVLive() executing job...");
         try {
             await ttvLiveHeartbeat(this.ttvAPI, this.filtersUsage);
         } catch (e) {
+            this.liveLock.unlock();
             logger.error(`handleTTVLive() an error occured while processing the task: ${e.toString()}`);
             console.error(e);
         }
-        this.isRun2 = false;
+        this.liveLock.unlock();
     }
 
     async handleTTVSchedules() {
-        if (this.isRun3) {
+        const locked = this.videosLock.lock();
+        if (!locked) {
             logger.warn("handleTTVSchedules() there's still a running task of this, cancelling this run...");
             return;
         }
-        this.isRun3 = true;
         logger.info("handleTTVSchedules() executing job...");
         try {
             await ttvLiveSchedules(this.ttvGQL, this.filtersUsage);
         } catch (e) {
+            this.videosLock.unlock();
             logger.error(`handleTTVSchedules() an error occured while processing the task: ${e.toString()}`);
             console.error(e);
         }
-        this.isRun3 = false;
+        this.videosLock.unlock();
     }
 }

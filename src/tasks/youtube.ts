@@ -2,92 +2,97 @@ import { youtubeChannelsStats, youtubeLiveHeartbeat, youtubeVideoFeeds, youtubeV
 import { FiltersConfig } from "../models";
 import { logger } from "../utils/logger";
 import { YTRotatingAPIKey } from "../utils/ytkey_rotator";
+import { LockKey } from "./utils";
 
 export class YouTubeTasks {
-    private isRun1: boolean
-    private isRun2: boolean
-    private isRun3: boolean
-    private isRun4: boolean
+    private channelLock: LockKey
+    private liveLock: LockKey
+    private videosLock: LockKey
+    private missingLock: LockKey
 
     filtersUsage: FiltersConfig
     ytKeys: YTRotatingAPIKey
 
     constructor(ytKeys: YTRotatingAPIKey, filtersUsage: FiltersConfig) {
         logger.info("YoutubeTasks() Initializing task handler...");
-        // Feeds and Missing check
-        this.isRun1 = false;
+        // Feeds
+        this.videosLock = new LockKey();
         // Heartbeat
-        this.isRun2 = false;
+        this.liveLock = new LockKey();
         // Channels
-        this.isRun3 = false;
+        this.channelLock = new LockKey();
         // Missing
-        this.isRun4 = false;
+        this.missingLock = new LockKey();
 
         this.filtersUsage = filtersUsage;
         this.ytKeys = ytKeys;
     }
 
     async handleYTChannel() {
-        if (this.isRun1) {
+        const locked = this.channelLock.lock();
+        if (!locked) {
             logger.warn("handleYTChannel() there's still a running task of this, cancelling this run...");
             return;
         }
-        this.isRun1 = true;
         logger.info("handleYTChannel() executing job...");
         try {
             await youtubeChannelsStats(this.ytKeys, this.filtersUsage);
         } catch (e) {
+            this.channelLock.unlock();
             logger.error(`handleYTChannel() an error occured while processing the task: ${e.toString()}`);
             console.error(e);
         }
-        this.isRun1 = false;
+        this.channelLock.unlock();
     }
 
     async handleYTFeeds() {
-        if (this.isRun2) {
+        const locked = this.videosLock.lock();
+        if (!locked) {
             logger.warn("handleYTFeeds() there's still a running task of this, cancelling this run...");
             return;
         }
-        this.isRun2 = true;
         logger.info("handleYTFeeds() executing job...");
         try {
             await youtubeVideoFeeds(this.ytKeys, this.filtersUsage);
         } catch (e) {
+            this.videosLock.unlock();
             logger.error(`handleYTFeeds() an error occured while processing the task: ${e.toString()}`);
             console.error(e);
         }
-        this.isRun2 = false;
+        this.videosLock.unlock();
     }
 
     async handleYTMissing() {
-        if (this.isRun4) {
+        const locked = this.missingLock.lock();
+        if (!locked) {
             logger.warn("handleYTMissing() there's still a running task of this, cancelling this run...");
             return;
         }
-        this.isRun4 = true;
         logger.info("handleYTMissing() executing job...");
         try {
             await youtubeVideoMissingCheck(this.ytKeys, this.filtersUsage);
         } catch (e) {
+            this.missingLock.unlock();
             logger.error(`handleYTMissing() an error occured while processing the task: ${e.toString()}`);
             console.error(e);
         }
-        this.isRun4 = false;
+        this.missingLock.unlock();
     }
 
     async handleYTLive() {
-        if (this.isRun3) {
+        const locked = this.liveLock.lock();
+        if (!locked) {
             logger.warn("handleYTLive() there's still a running task of this, cancelling this run...");
             return;
         }
-        this.isRun3 = true;
         logger.info("handleYTLive() executing job...");
         try {
             await youtubeLiveHeartbeat(this.ytKeys, this.filtersUsage);
         } catch (e) {
+            this.liveLock.unlock();
             logger.error(`handleYTLive() an error occured while processing the task: ${e.toString()}`);
             console.error(e);
         }
-        this.isRun3 = false;
+        this.liveLock.unlock();
     }
 }

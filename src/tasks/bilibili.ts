@@ -1,70 +1,74 @@
 import { bilibiliChannelsStats, bilibiliLiveHeartbeat, bilibiliVideoFeeds } from "../controller";
 import { FiltersConfig } from "../models";
 import { logger } from "../utils/logger";
+import { LockKey } from "./utils";
 
 export class BilibiliTasks {
-    private isRun1: boolean
-    private isRun2: boolean
-    private isRun3: boolean
+    private channelLock: LockKey
+    private liveLock: LockKey
+    private videosLock: LockKey
     
     filtersUsage: FiltersConfig
 
     constructor(filtersUsage: FiltersConfig) {
         logger.info("BilibiliTasks() Initializing task handler...");
         // Feeds
-        this.isRun1 = false;
+        this.videosLock = new LockKey();
         // Heartbeat
-        this.isRun2 = false;
+        this.liveLock = new LockKey();
         // Channels
-        this.isRun3 = false;
+        this.channelLock = new LockKey();
         this.filtersUsage = filtersUsage;
     }
 
     async handleB2Feeds() {
-        if (this.isRun1) {
+        const locked = this.videosLock.lock();
+        if (!locked) {
             logger.warn("handleB2Feeds() there's still a running task of this, cancelling this run...");
             return;
         }
-        this.isRun1 = true;
         logger.info("handleB2Feeds() executing job...");
         try {
             await bilibiliVideoFeeds(this.filtersUsage);
         } catch (e) {
+            this.videosLock.unlock();
             logger.error(`handleB2Feeds() an error occured while processing the task: ${e.toString()}`);
             console.error(e);
         }
-        this.isRun1 = false;
+        this.videosLock.unlock();
     }
 
     async handleB2Live() {
-        if (this.isRun2) {
+        const locked = this.liveLock.lock();
+        if (!locked) {
             logger.warn("handleB2Feeds() there's still a running task of this, cancelling this run...");
             return;
         }
-        this.isRun2 = true;
         logger.info("handleB2Feeds() executing job...");
         try {
             await bilibiliLiveHeartbeat(this.filtersUsage);
         } catch (e) {
+            this.liveLock.unlock();
             logger.error(`handleB2Feeds() an error occured while processing the task: ${e.toString()}`);
             console.error(e);
         }
-        this.isRun2 = false;
+        this.liveLock.unlock();
     }
 
     async handleB2Channels() {
-        if (this.isRun3) {
+        const locked = this.channelLock.lock();
+        if (!locked) {
             logger.warn("handleB2Channels() there's still a running task of this, cancelling this run...");
             return;
         }
-        this.isRun3 = true;
         logger.info("handleB2Channels() executing job...");
         try {
             await bilibiliChannelsStats(this.filtersUsage);
         } catch (e) {
+            this.channelLock.unlock();
             logger.error(`handleB2Channels() an error occured while processing the task: ${e.toString()}`);
             console.error(e);
         }
-        this.isRun3 = false;
+        this.channelLock.unlock();
     }
 }
