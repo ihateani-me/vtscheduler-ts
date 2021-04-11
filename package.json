@@ -5,7 +5,7 @@
   "main": "src/index.ts",
   "scripts": {
     "start": "nodemon src/index.ts",
-    "database": "ts-node database/entrypoint.ts",
+    "database": "ts-node --transpile-only database/entrypoint.ts",
     "validate": "node tools/validate_schemas.js"
   },
   "repository": {
