@@ -1,6 +1,6 @@
 import _ from "lodash";
 import axios, { AxiosInstance } from "axios";
-import moment from "moment-timezone";
+import { DateTime } from "luxon";
 
 import { logger } from "../utils/logger";
 import { YTRotatingAPIKey } from "../utils/ytkey_rotator";
@@ -256,14 +256,14 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: F
         let ended_time = null;
         let scheduled_start_time = null;
         if (_.has(livedetails, "scheduledStartTime")) {
-            scheduled_start_time = moment.tz(livedetails["scheduledStartTime"], "UTC").unix();
+            scheduled_start_time = DateTime.fromISO(livedetails["scheduledStartTime"], {zone: "UTC"}).toSeconds();
         }
         if (_.has(livedetails, "actualStartTime")) {
-            start_time = moment.tz(livedetails["actualStartTime"], "UTC").unix();
-            scheduled_start_time = moment.tz(livedetails["scheduledStartTime"], "UTC").unix();
+            start_time = DateTime.fromISO(livedetails["actualStartTime"], {zone: "UTC"}).toSeconds();
+            scheduled_start_time = DateTime.fromISO(livedetails["scheduledStartTime"], {zone: "UTC"}).toSeconds();
         }
         if (_.has(livedetails, "actualEndTime")) {
-            ended_time = moment.tz(livedetails["actualEndTime"], "UTC").unix();
+            ended_time = DateTime.fromISO(livedetails["actualEndTime"], {zone: "UTC"}).toSeconds();
             video_type = "past";
         }
 
@@ -297,7 +297,7 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: F
 
         // Prefil the start and end time for video type
         if (video_type === "video") {
-            const parsedTime = moment.tz(publishedAt).unix();
+            const parsedTime = DateTime.fromISO(publishedAt, {zone: "UTC"}).toSeconds();
             start_time = parsedTime;
             ended_time = parsedTime;
         }
@@ -341,7 +341,7 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: F
             let viewNewData = {
                 "id": video_id,
                 "viewersData": [{
-                    "timestamp": moment.tz("UTC").unix(),
+                    "timestamp": Math.floor(DateTime.utc().toSeconds()),
                     "viewers": viewers
                 }],
                 "group": group,
@@ -465,14 +465,14 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
         let ended_time = null;
         let scheduled_start_time = null;
         if (_.has(livedetails, "scheduledStartTime")) {
-            scheduled_start_time = moment.tz(livedetails["scheduledStartTime"], "UTC").unix();
+            scheduled_start_time = DateTime.fromISO(livedetails["scheduledStartTime"], {zone: "UTC"}).toSeconds();
         }
         if (_.has(livedetails, "actualStartTime")) {
-            start_time = moment.tz(livedetails["actualStartTime"], "UTC").unix();
-            scheduled_start_time = moment.tz(livedetails["scheduledStartTime"], "UTC").unix();
+            start_time = DateTime.fromISO(livedetails["actualStartTime"], {zone: "UTC"}).toSeconds();
+            scheduled_start_time = DateTime.fromISO(livedetails["scheduledStartTime"], {zone: "UTC"}).toSeconds();
         }
         if (_.has(livedetails, "actualEndTime")) {
-            ended_time = moment.tz(livedetails["actualEndTime"], "UTC").unix();
+            ended_time = DateTime.fromISO(livedetails["actualEndTime"], {zone: "UTC"}).toSeconds();
             video_type = "past";
         }
 
@@ -533,7 +533,7 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
             if (typeof currentViewersData !== "undefined" && !_.isNull(currentViewersData)) {
                 viewersDataArrays = _.get(currentViewersData, "viewersData", []);
                 viewersDataArrays.push({
-                    timestamp: moment.tz("UTC").unix(),
+                    timestamp: Math.floor(DateTime.utc().toSeconds()),
                     viewers: currentViewers,
                 });
                 let viewUpdData = {
@@ -547,7 +547,7 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
                 }
             } else {
                 viewersDataArrays.push({
-                    timestamp: moment.tz("UTC").unix(),
+                    timestamp: Math.floor(DateTime.utc().toSeconds()),
                     viewers: currentViewers,
                 });
                 let viewNewData = {
@@ -627,7 +627,7 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
     let differenceResults = _.difference(expectedResults, actualResults);
     if (differenceResults.length > 0) {
         logger.info(`youtubeLiveHeartbeat() missing ${differenceResults.length} videos from API results, marking it as missing and past`);
-        let targetEndTime = moment.tz("UTC").unix();
+        let targetEndTime = Math.floor(DateTime.utc().toSeconds());
         let filteredDifferences = [];
         for (let i = 0; i < differenceResults.length; i++) {
             let missingId = differenceResults[i];
@@ -678,6 +678,7 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
     if (to_be_committed.length > 0) {
         logger.info(`youtubeLiveHeartbeat() committing update...`);
         const dbUpdate = to_be_committed.map((new_update) => (
+            // @ts-ignore
             VideosData.findOneAndUpdate({ "id": { "$eq": new_update.id } }, new_update, null, (err) => {
                 if (err) {
                     logger.error(`youtubeLiveHeartbeat() failed to update ${new_update.id}, ${err.toString()}`);
@@ -746,7 +747,7 @@ export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey, filtersRun
     items_data = _.flattenDeep(items_data);
     let historySet: HistoryMap[] = [];
     logger.info(`youtubeChannelsStats() preparing update...`);
-    let currentTimestamp = moment.tz("UTC").unix();
+    let currentTimestamp = Math.floor(DateTime.utc().toSeconds());
     const to_be_committed = items_data.map((res_item) => {
         let ch_id = res_item["id"];
         let snippets: AnyDict = res_item["snippet"];
@@ -822,6 +823,7 @@ export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey, filtersRun
     if (to_be_committed.length > 0) {
         logger.info(`youtubeChannelsStats() committing update...`);
         const dbUpdate = to_be_committed.map((new_update) => (
+            // @ts-ignore
             ChannelsData.findOneAndUpdate({ "id": { "$eq": new_update.id } }, new_update, null, (err) => {
                 if (err) {
                     logger.error(`youtubeChannelsStats() failed to update ${new_update.id}, ${err.toString()}`);
@@ -951,14 +953,14 @@ export async function youtubeVideoMissingCheck(apiKeys: YTRotatingAPIKey, filter
         let ended_time = null;
         let scheduled_start_time = null;
         if (_.has(livedetails, "scheduledStartTime")) {
-            scheduled_start_time = moment.tz(livedetails["scheduledStartTime"], "UTC").unix();
+            scheduled_start_time = DateTime.fromISO(livedetails["scheduledStartTime"], {zone: "UTC"}).toSeconds();
         }
         if (_.has(livedetails, "actualStartTime")) {
-            start_time = moment.tz(livedetails["actualStartTime"], "UTC").unix();
-            scheduled_start_time = moment.tz(livedetails["scheduledStartTime"], "UTC").unix();
+            start_time = DateTime.fromISO(livedetails["actualStartTime"], {zone: "UTC"}).toSeconds();
+            scheduled_start_time = DateTime.fromISO(livedetails["scheduledStartTime"], {zone: "UTC"}).toSeconds();
         }
         if (_.has(livedetails, "actualEndTime")) {
-            ended_time = moment.tz(livedetails["actualEndTime"], "UTC").unix();
+            ended_time = DateTime.fromISO(livedetails["actualEndTime"], {zone: "UTC"}).toSeconds();
             video_type = "past";
         }
 
@@ -1019,7 +1021,7 @@ export async function youtubeVideoMissingCheck(apiKeys: YTRotatingAPIKey, filter
             if (typeof currentViewersData !== "undefined" && !_.isNull(currentViewersData)) {
                 viewersDataArrays = _.get(currentViewersData, "viewersData", []);
                 viewersDataArrays.push({
-                    timestamp: moment.tz("UTC").unix(),
+                    timestamp: Math.floor(DateTime.utc().toSeconds()),
                     viewers: currentViewers,
                 });
                 let viewUpdData = {
@@ -1033,7 +1035,7 @@ export async function youtubeVideoMissingCheck(apiKeys: YTRotatingAPIKey, filter
                 }
             } else {
                 viewersDataArrays.push({
-                    timestamp: moment.tz("UTC").unix(),
+                    timestamp: Math.floor(DateTime.utc().toSeconds()),
                     viewers: currentViewers,
                 });
                 let viewNewData = {
@@ -1110,6 +1112,7 @@ export async function youtubeVideoMissingCheck(apiKeys: YTRotatingAPIKey, filter
     if (to_be_committed.length > 0) {
         logger.info(`youtubeVideoMissingCheck() committing update...`);
         const dbUpdate = to_be_committed.map((new_update) => (
+            // @ts-ignore
             VideosData.findOneAndUpdate({ "id": { "$eq": new_update.id } }, new_update, null, (err) => {
                 if (err) {
                     logger.error(`youtubeVideoMissingCheck() failed to update ${new_update.id}, ${err.toString()}`);

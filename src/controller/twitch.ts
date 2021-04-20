@@ -1,5 +1,5 @@
 import _ from "lodash";
-import moment from "moment-timezone";
+import { DateTime } from "luxon";
 
 import { logger } from "../utils/logger";
 import { isNone } from "../utils/swissknife";
@@ -36,9 +36,9 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, filtersRun: FiltersC
     for (let i = 0; i < twitch_results.length; i++) {
         let result = twitch_results[i];
 
-        let start_time = moment.tz(result["started_at"], "UTC").unix();
+        let start_time = Math.floor(DateTime.fromISO(result["started_at"], {zone: "UTC"}).toSeconds());
         // Exclusively used for user schedule check.
-        let currentTimeCheck = moment.utc().unix();
+        let currentTimeCheck = Math.floor(DateTime.utc().toSeconds());
         let channel_map = _.find(channels, {"user_id": result["user_id"]});
         let thumbnail = result["thumbnail_url"];
         thumbnail = thumbnail.replace("{width}", "1280").replace("{height}", "720");
@@ -131,7 +131,7 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, filtersRun: FiltersC
         if (typeof currentViewersData !== "undefined" && !_.isNull(currentViewersData)) {
             viewersDataArrays = _.get(currentViewersData, "viewersData", []);
             viewersDataArrays.push({
-                timestamp: moment.tz("UTC").unix(),
+                timestamp: Math.floor(DateTime.utc().toSeconds()),
                 viewers: viewers,
             });
             let viewUpdData = {
@@ -145,7 +145,7 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, filtersRun: FiltersC
             }
         } else {
             viewersDataArrays.push({
-                timestamp: moment.tz("UTC").unix(),
+                timestamp: Math.floor(DateTime.utc().toSeconds()),
                 viewers: viewers,
             });
             let viewNewData = {
@@ -169,10 +169,11 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, filtersRun: FiltersC
         if (!isNone(updMap)) {
             continue
         }
-        let endTime = moment.tz("UTC").unix();
+        let endTime = Math.floor(DateTime.utc().toSeconds());
         // @ts-ignore
-        let publishedAt = moment.tz(oldRes["timedata"]["startTime"] * 1000, "UTC").format();
-        if (oldRes["status"] === "upcoming") {
+
+        let publishedAt = DateTime.fromSeconds(oldRes["timedata"]["startTime"] as number, {zone: "UTC"}).toISO();
+        if (oldRes["status"] !== "live") {
             continue;
         }
 
@@ -235,6 +236,7 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, filtersRun: FiltersC
     if (updateData.length > 0) {
         logger.info("ttvLiveHeartbeat() updating existing videos...");
         const dbUpdateCommit = updateData.map((new_update) => (
+            // @ts-ignore
             VideosData.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
                 if (err) {
                     // @ts-ignore
@@ -304,8 +306,8 @@ export async function ttvLiveSchedules(ttvAPI: TwitchGQL, filtersRun: FiltersCon
             // Schedule already exist
             continue;
         }
-        const startTime = moment.utc(twSchedule.startAt).unix();
-        const endTime = moment.utc(twSchedule.endAt).unix();
+        const startTime = DateTime.fromISO(twSchedule.startAt, {zone: "UTC"}).toSeconds();
+        const endTime = DateTime.fromISO(twSchedule.endAt, {zone: "UTC"}).toSeconds();
         let title = twSchedule.title;
         if (isNone(title, true)) {
             title = `${twSchedule["channel_id"]} Scheduled Stream`;
@@ -361,7 +363,7 @@ export async function ttvChannelsStats(ttvAPI: TwitchHelix, filtersRun: FiltersC
     logger.info("ttvChannelsStats() parsing API results...");
     let updateData = [];
     let historySet: HistoryMap[] = [];
-    let currentTimestamp = moment.tz("UTC").unix();
+    let currentTimestamp = Math.floor(DateTime.utc().toSeconds());
     for (let i = 0; i < twitch_results.length; i++) {
         let result = twitch_results[i];
         logger.info(`ttvChannelsStats() parsing and fetching followers and videos ${result["login"]}`);
@@ -418,6 +420,7 @@ export async function ttvChannelsStats(ttvAPI: TwitchHelix, filtersRun: FiltersC
     if (updateData.length > 0) {
         logger.info("ttvChannelsStats() updating channels...");
         const dbUpdateCommit = updateData.map((new_update) => (
+            // @ts-ignore
             ChannelsData.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
                 if (err) {
                     // @ts-ignore

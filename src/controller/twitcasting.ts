@@ -1,6 +1,6 @@
 import _ from "lodash";
 import axios from "axios";
-import moment from "moment-timezone";
+import { DateTime } from "luxon";
 
 import { logger } from "../utils/logger";
 import { fallbackNaN, isNone } from "../utils/swissknife";
@@ -57,7 +57,7 @@ export async function twcastLiveHeartbeat(filtersRun: FiltersConfig) {
     const collectedLives = await Promise.all(wrappedPromises);
     let insertData: any[] = [];
     let updateData: any[] = [];
-    let current_time = moment.tz("UTC").unix();
+    let current_time = Math.floor(DateTime.utc().toSeconds());
     for (let i = 0; i < collectedLives.length; i++) {
         let result = collectedLives[i];
         logger.info(`twcastLiveHeartbeat() parsing ${result.id}`);
@@ -119,7 +119,7 @@ export async function twcastLiveHeartbeat(filtersRun: FiltersConfig) {
             tw_title = `Radio Live #${tw_sid}`;
         }
         let tw_start_time = Math.round(current_time - tw_time_passed);
-        let publishedAt = moment.tz(tw_start_time * 1000, "UTC").format();
+        let publishedAt = DateTime.fromSeconds(tw_start_time, {zone: "UTC"}).toISO();
 
         let old_mappings = _.find(video_sets, {"id": tw_sid});
         if (!isNone(old_mappings)) {
@@ -177,7 +177,7 @@ export async function twcastLiveHeartbeat(filtersRun: FiltersConfig) {
         if (typeof currentViewersData !== "undefined" && !_.isNull(currentViewersData)) {
             viewersDataArrays = _.get(currentViewersData, "viewersData", []);
             viewersDataArrays.push({
-                timestamp: moment.tz("UTC").unix(),
+                timestamp: Math.floor(DateTime.utc().toSeconds()),
                 viewers: tw_current_viewers,
             });
             let viewUpdData = {
@@ -191,7 +191,7 @@ export async function twcastLiveHeartbeat(filtersRun: FiltersConfig) {
             }
         } else {
             viewersDataArrays.push({
-                timestamp: moment.tz("UTC").unix(),
+                timestamp: Math.floor(DateTime.utc().toSeconds()),
                 viewers: tw_current_viewers,
             });
             let viewNewData = {
@@ -214,9 +214,12 @@ export async function twcastLiveHeartbeat(filtersRun: FiltersConfig) {
         if (!isNone(updMap)) {
             continue
         }
-        let endTime = moment.tz("UTC").unix();
-        // @ts-ignore
-        let publishedAt = moment.tz(oldRes["timedata"]["startTime"] * 1000, "UTC").format();
+        if (oldRes["status"] !== "live") {
+            continue;
+        }
+        let endTime = Math.floor(DateTime.utc().toSeconds());
+
+        let publishedAt = DateTime.fromSeconds(oldRes["timedata"]["startTime"] as number, {zone: "UTC"}).toISO();
 
         // @ts-ignore
         let updOldData: VideoProps = {
@@ -271,6 +274,7 @@ export async function twcastLiveHeartbeat(filtersRun: FiltersConfig) {
     if (updateData.length > 0) {
         logger.info("twcastLiveHeartbeat() updating existing videos...");
         const dbUpdateCommit = updateData.map((new_update) => (
+            // @ts-ignore
             VideosData.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
                 if (err) {
                     logger.error(`twcastLiveHeartbeat() failed to update ${new_update.id}, ${err.toString()}`);
@@ -327,7 +331,7 @@ export async function twcastChannelsStats(filtersRun: FiltersConfig) {
     const collectedChannels = (await Promise.all(wrappedPromises)).filter(res => Object.keys(res).length > 0);
     let updateData = [];
     let historySet: HistoryMap[] = [];
-    let currentTimestamp = moment.tz("UTC").unix();
+    let currentTimestamp = Math.floor(DateTime.utc().toSeconds());
     for (let i = 0; i < collectedChannels.length; i++) {
         let result = collectedChannels[i];
         if (!_.has(result, "user")) {

@@ -1,6 +1,6 @@
 import _ from "lodash";
 import axios from "axios";
-import moment from "moment-timezone";
+import { DateTime } from "luxon";
 
 import { logger } from "../utils/logger";
 import { isNone } from "../utils/swissknife";
@@ -62,9 +62,9 @@ export async function bilibiliVideoFeeds(filtersRun: FiltersConfig) {
         return;
     }
 
-    let currentTime = moment.tz("Asia/Taipei")
-    let currentYearMonth = currentTime.format("YYYY-MM");
-    let currentDay = currentTime.date();
+    let currenTime = DateTime.now().setZone("UTC+08:00");
+    let currentYearMonth = currenTime.toFormat("yyyy'-'MM");
+    let currentDay = currenTime.get("day");
 
     const channelsChunks = _.chunk(channels, 50);
     logger.info(`bilibiliVideoFeeds() creating fetch jobs for ${channelsChunks.length} chunks...`);
@@ -106,7 +106,7 @@ export async function bilibiliVideoFeeds(filtersRun: FiltersConfig) {
         let programInfo = dataChunk["program_infos"];
         let processDate = Object.keys(programInfo);
         processDate = processDate.filter(res => parseInt(res) >= currentDay);
-        let currentUTC = moment.tz("UTC").unix();
+        let currentUTC = Math.floor(DateTime.utc().toSeconds());
         for (let j = 0; j < processDate.length; j++) {
             let programDate = processDate[j];
             let programSets = programInfo[programDate];
@@ -250,8 +250,8 @@ export async function bilibiliLiveHeartbeat(filtersRun: FiltersConfig) {
             continue;
         }
 
-        const parsedStart = moment.tz(room_data["live_time"], "Asia/Taiped");
-        let start_time = parsedStart.unix();
+        const parsedStart = DateTime.fromISO(room_data["live_time"], {zone: "UTC+08:00"});
+        let start_time = parsedStart.toSeconds();
         let userScheduled = scheduled.filter(e => e["channel_id"] === userId);
         // @ts-ignore
         userScheduled = userScheduled.filter((video) => video["timedata"]["startTime"] <= start_time && start_time <= video["timedata"]["endTime"]);
@@ -260,7 +260,7 @@ export async function bilibiliLiveHeartbeat(filtersRun: FiltersConfig) {
             startTime: start_time,
             endTime: null,
             duration: null,
-            publishedAt: parsedStart.format()
+            publishedAt: parsedStart.toUTC().toISO(),
         }
         let firstSchedule;
         if (userScheduled.length > 0) {
@@ -336,7 +336,7 @@ export async function bilibiliLiveHeartbeat(filtersRun: FiltersConfig) {
         if (typeof currentViewersData !== "undefined" && !_.isNull(currentViewersData)) {
             viewersDataArrays = _.get(currentViewersData, "viewersData", []);
             viewersDataArrays.push({
-                timestamp: moment.tz("UTC").unix(),
+                timestamp: Math.floor(DateTime.utc().toSeconds()),
                 viewers: viewers,
             });
             let viewUpdData = {
@@ -350,7 +350,7 @@ export async function bilibiliLiveHeartbeat(filtersRun: FiltersConfig) {
             }
         } else {
             viewersDataArrays.push({
-                timestamp: moment.tz("UTC").unix(),
+                timestamp: Math.floor(DateTime.utc().toSeconds()),
                 viewers: viewers,
             });
             let viewNewData = {
@@ -373,8 +373,8 @@ export async function bilibiliLiveHeartbeat(filtersRun: FiltersConfig) {
         if (!isNone(updMap)) {
             continue
         }
-        let endTime = moment.tz("UTC").unix();
-        if (oldRes["status"] === "upcoming") {
+        let endTime = Math.floor(DateTime.utc().toSeconds());
+        if (oldRes["status"] !== "live") {
             continue;
         }
 
@@ -437,6 +437,7 @@ export async function bilibiliLiveHeartbeat(filtersRun: FiltersConfig) {
     if (updateData.length > 0) {
         logger.info("bilibiliLiveHeartbeat() updating existing videos...");
         const dbUpdateCommit = updateData.map((new_update) => (
+            // @ts-ignore
             VideosData.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
                 if (err) {
                     // @ts-ignore
@@ -485,7 +486,7 @@ export async function bilibiliChannelsStats(filtersRun: FiltersConfig) {
     logger.info("bilibiliChannelsStats() parsing results...");
     let updateData = [];
     let historySet: HistoryMap[] = [];
-    let currentTimestamp = moment.tz("UTC").unix();
+    let currentTimestamp = Math.floor(DateTime.utc().toSeconds());
     for (let i = 0; i < allFetchedResponses.length; i++) {
         const mapped_data = allFetchedResponses[i];
         let assignedData: UnpackedData = {};

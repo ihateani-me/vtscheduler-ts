@@ -1,5 +1,5 @@
 import _ from "lodash";
-import moment from "moment-timezone";
+import { DateTime } from "luxon";
 
 import { VTuberModel } from "../dataset/model";
 
@@ -46,7 +46,7 @@ export async function mildomChannelsDataset(mildomAPI: MildomAPI, dataset: VTube
     let mildom_results: MildomChannelProps[] = await Promise.all(mildomCrawlerDelayed);
     logger.info(`mildomChannelDataset(${group}) parsing API results...`);
     let insertData = [];
-    let currentTimestamp = moment.tz("UTC").unix();
+    let currentTimestamp = Math.floor(DateTime.utc().toSeconds());
     for (let i = 0; i < mildom_results.length; i++) {
         let result = mildom_results[i];
         if (isNone(result, true)) {
@@ -79,7 +79,7 @@ export async function mildomChannelsDataset(mildomAPI: MildomAPI, dataset: VTube
 
     // @ts-ignore
     let historyDatas: ChannelStatsHistProps[] = insertData.map((res) => {
-        let timestamp = moment.tz("UTC").unix();
+        let timestamp = Math.floor(DateTime.utc().toSeconds());
         return {
             id: res["id"],
             history: [

@@ -1,6 +1,6 @@
 import _ from "lodash";
 import axios, { AxiosInstance } from "axios";
-import moment from "moment-timezone";
+import { DateTime } from "luxon";
 
 import { logger } from "./logger";
 import { isNone } from "./swissknife";
@@ -164,18 +164,18 @@ export class MildomAPI {
             return undefined;
         }
 
-        let liveStart = moment.tz(liveInfo["live_start_ms"], "UTC");
+        let liveStart = DateTime.fromMillis(liveInfo["live_start_ms"], {zone: "UTC"});
 
         properResults["id"] = liveInfo["log_id"];
         properResults["title"] = liveInfo["anchor_intro"];
         properResults["status"] = "live"
         properResults["timedata"] = {
-            "startTime": liveStart.unix(),
+            "startTime": liveStart.toSeconds(),
             // @ts-ignore
             "endTime": null,
             // @ts-ignore
             "duration": null,
-            "publishedAt": liveStart.format()
+            "publishedAt": liveStart.toISO()
         }
         properResults["viewers"] = liveInfo["viewers"];
         properResults["channel_id"] = userId;

@@ -1,6 +1,6 @@
 import _ from "lodash";
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
-import moment from "moment-timezone";
+import { DateTime, Interval } from "luxon";
 
 import { logger } from "./logger";
 import { isNone } from "./swissknife";
@@ -57,12 +57,12 @@ export class TwitchHelix {
     }
 
     private current() {
-        return moment.tz("UTC").unix();
+        return Math.floor(DateTime.utc().toSeconds());
     }
 
     private async handleRateLimitRequest(config: AxiosRequestConfig): Promise<AxiosRequestConfig> {
         if (this.remainingBucket < 1 && this.remainingBucket !== -1) {
-            let currentTime = moment.tz("UTC").unix();
+            let currentTime = this.current();
             if (this.nextReset > currentTime) {
                 logger.info(`TwitchHelix.handleRateLimit() currently rate limited, delaying by ${this.nextReset - currentTime} seconds`)
                 await this.delayBy((this.nextReset - currentTime) * 1000);
@@ -320,8 +320,8 @@ export class TwitchGQL {
 
     async getSchedules(loginName: string, overrideTime?: string): Promise<[StreamScheduleGQL[], any]> {
         // sample: 2021-02-28T16:59:59.059Z
-        const currentTime = moment.utc();
-        const relativeTime = currentTime.format("YYYY-MM-DD[T]HH:mm:ss.SSS[Z]");
+        const currentTime = DateTime.now().toUTC();
+        const relativeTime = currentTime.toFormat(`yyyy-MM-dd'T'HH':'mm':'ss'.'SSS'Z'`);
         const variables = {
             "login": loginName,
             "startDate": isNone(overrideTime) ? relativeTime : overrideTime,
@@ -354,7 +354,7 @@ export class TwitchGQL {
                 return res;
             });
             // Dont go pass the current hour :)
-            scheduleSegments = scheduleSegments.filter((e) => moment.utc(e.startAt).isAfter(currentTime, "hour"));
+            scheduleSegments = scheduleSegments.filter((e) => DateTime.fromISO(e.startAt, {zone: "UTC"}).startOf("hour") > currentTime.startOf("hour"));
         }
         return [scheduleSegments, null];
     }

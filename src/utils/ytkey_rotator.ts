@@ -1,5 +1,5 @@
 import _ from "lodash";
-import moment from "moment-timezone";
+import { DateTime, Duration } from "luxon";
 
 import { logger } from "./logger";
 
@@ -31,13 +31,13 @@ export class YTRotatingAPIKey {
     }
 
     private determineStart(): number {
-        let currentDay = moment.tz("UTC").startOf("day");
-        let currentHour = moment.tz("UTC").startOf("hour");
-        let diffs = moment.duration(currentHour.diff(currentDay));
-        let repeating_time = Math.floor(Math.abs(diffs.asMinutes()) / this.rate);
+        let currentDay = DateTime.utc().startOf("day");
+        let currentHour = DateTime.utc().startOf("hour");
+        let diffs = currentHour.diff(currentDay);
+        let repeating_time = Math.floor(Math.abs(diffs.as("minutes")) / this.rate);
         logger.info(`YTRotatingAPIKey.determineStart() Adjusting with current hour, rotating ${repeating_time} times`);
         _.times(repeating_time, () => this.rotate());
-        return currentHour.add(this.rate, "minute").unix();
+        return currentHour.plus({minutes: this.rate}).toSeconds();
     }
 
     private fillUpKeys() {
@@ -86,11 +86,11 @@ export class YTRotatingAPIKey {
         Next rotation (3/Full rotate): ["api_a", "api_b", "api_c"]
      */
     private checkTime() {
-        let current = moment.tz("UTC");
-        if (current.unix() >= this.next_rotate) {
-            let ctext = current.format();
+        let current = DateTime.utc();
+        if (current.toSeconds() >= this.next_rotate) {
+            let ctext = current.toISO();
             logger.info("YTRotatingAPIKey.checkTime() Rotating API key...");
-            this.next_rotate = moment.tz(this.next_rotate * 1000, "UTC").add(this.rate, "minute").unix();
+            this.next_rotate = DateTime.fromSeconds(this.next_rotate, {zone: "UTC"}).plus({minutes: this.rate}).toSeconds();
             logger.info(`YTRotatingAPIKey.checkTime() Next API rotate: ${ctext}`);
             this.rotate();
         }
@@ -112,17 +112,17 @@ export class YTRotatingAPIKey {
     forceRotate(): void {
         if (this.lastForced === -1) {
             logger.info(`YTRotatingAPIKey.forceRotate() force rotating keys, shifting next rotation by ${this.rate} minutes`);
-            this.lastForced = moment.tz("UTC").unix();
-            this.next_rotate = moment.tz(this.next_rotate * 1000, "UTC").add(this.rate, "minute").unix();
+            this.lastForced = DateTime.utc().toSeconds();
+            this.next_rotate = DateTime.fromSeconds(this.next_rotate, {zone: "UTC"}).plus({minutes: this.rate}).toSeconds();
             this.rotate();
             return;
         }
         // 15 seconds inverval guard
-        let current = moment.tz("UTC").unix() - 15;
+        let current = DateTime.utc().toSeconds() - 15;
         if (current > this.lastForced) {
             logger.info(`YTRotatingAPIKey.forceRotate() force rotating keys, shifting next rotation by ${this.rate} minutes`);
             this.lastForced = current + 15;
-            this.next_rotate = moment.tz(this.next_rotate * 1000, "UTC").add(this.rate, "minute").unix();
+            this.next_rotate = DateTime.fromSeconds(this.next_rotate, {zone: "UTC"}).plus({minutes: this.rate}).toSeconds();
             this.rotate();
             return;
         }

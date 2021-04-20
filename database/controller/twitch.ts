@@ -1,5 +1,5 @@
 import _ from "lodash";
-import moment from "moment-timezone";
+import { DateTime } from "luxon";
 
 import { VTuberModel } from "../dataset/model";
 
@@ -62,7 +62,7 @@ export async function ttvChannelDataset(dataset: VTuberModel[], ttvAPI: TwitchHe
 
     // @ts-ignore
     let historyDatas: ChannelStatsHistProps[] = newChannels.map((res) => {
-        let timestamp = moment.tz("UTC").unix();
+        let timestamp = Math.floor(DateTime.utc().toSeconds());
         return {
             id: res["id"],
             history: [

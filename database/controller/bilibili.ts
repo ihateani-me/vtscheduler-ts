@@ -1,4 +1,4 @@
-import moment from "moment-timezone";
+import { DateTime } from "luxon";
 
 import { VTuberModel } from "../dataset/model";
 
@@ -107,7 +107,7 @@ export async function bilibiliChannelsDataset(dataset: VTuberModel[]) {
 
     // @ts-ignore
     let historyDatas: ChannelStatsHistProps[] = insertData.map((res) => {
-        let timestamp = moment.tz("UTC").unix();
+        let timestamp = Math.floor(DateTime.utc().toSeconds());
         return {
             id: res["id"],
             history: [

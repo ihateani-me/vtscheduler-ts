@@ -1,5 +1,5 @@
 import _ from "lodash";
-import moment from "moment-timezone";
+import { DateTime } from "luxon";
 
 import { logger } from "../utils/logger";
 import { isNone } from "../utils/swissknife";
@@ -115,7 +115,7 @@ export async function mildomLiveHeartbeat(mildomAPI: MildomAPI, filtersRun: Filt
         if (typeof currentViewersData !== "undefined" && !_.isNull(currentViewersData)) {
             viewersDataArrays = _.get(currentViewersData, "viewersData", []);
             viewersDataArrays.push({
-                timestamp: moment.tz("UTC").unix(),
+                timestamp: Math.floor(DateTime.utc().toSeconds()),
                 viewers: viewers,
             });
             let viewUpdData = {
@@ -129,7 +129,7 @@ export async function mildomLiveHeartbeat(mildomAPI: MildomAPI, filtersRun: Filt
             }
         } else {
             viewersDataArrays.push({
-                timestamp: moment.tz("UTC").unix(),
+                timestamp: Math.floor(DateTime.utc().toSeconds()),
                 viewers: viewers,
             });
             let viewNewData = {
@@ -153,9 +153,10 @@ export async function mildomLiveHeartbeat(mildomAPI: MildomAPI, filtersRun: Filt
         if (!isNone(updMap)) {
             continue
         }
-        let endTime = moment.tz("UTC").unix();
-        // @ts-ignore
-        let publishedAt = _.get(oldRes, "publishedAt");
+        if (oldRes["status"] !== "live") {
+            continue;
+        }
+        let endTime = Math.floor(DateTime.utc().toSeconds());
 
         // @ts-ignore
         let updOldData: VideoProps = {
@@ -210,6 +211,7 @@ export async function mildomLiveHeartbeat(mildomAPI: MildomAPI, filtersRun: Filt
     if (updateData.length > 0) {
         logger.info("mildomLiveHeartbeat() updating existing videos...");
         const dbUpdateCommit = updateData.map((new_update) => (
+            // @ts-ignore
             VideosData.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
                 if (err) {
                     // @ts-ignore
@@ -258,7 +260,7 @@ export async function mildomChannelsStats(mildomAPI: MildomAPI, filtersRun: Filt
     logger.info("mildomChannelStats() parsing API results...");
     let updateData = [];
     let historySet: HistoryMap[] = [];
-    let currentTimestamp = moment.tz("UTC").unix();
+    let currentTimestamp = Math.floor(DateTime.utc().toSeconds());
     for (let i = 0; i < mildom_results.length; i++) {
         let result = mildom_results[i];
         if (result === null) {
