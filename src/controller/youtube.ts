@@ -295,6 +295,13 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: F
             start_time = scheduled_start_time;
         }
 
+        // Prefil the start and end time for video type
+        if (video_type === "video") {
+            const parsedTime = moment.tz(publishedAt).unix();
+            start_time = parsedTime;
+            ended_time = parsedTime;
+        }
+
         let viewers = null,
             peak_viewers = null;
         if (_.has(livedetails, "concurrentViewers")) {
