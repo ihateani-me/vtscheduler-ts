@@ -19,6 +19,7 @@ const ChannelsSchema = createSchema(
         group: Type.string({required: true}),
         platform: Type.string({required: true, enum: PlatformData}),
         is_live: Type.boolean(), // B2 Specific
+        is_retired: Type.boolean(),
     }
 )
 

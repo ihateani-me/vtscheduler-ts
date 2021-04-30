@@ -29,7 +29,7 @@ export async function twcastLiveHeartbeat(filtersRun: FiltersConfig) {
 
     logger.info("twcastLiveHeartbeat() fetching channels and videos data...");
     let video_sets = await VideosData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [{"platform": {"$eq": "twitcasting"}}]);
-    let channels = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], {"id": 1, "group": 1}, [{"platform": {"$eq": "twitcasting"}}]);
+    let channels = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], {"id": 1, "group": 1}, [{"platform": {"$eq": "twitcasting"}}, {"is_retired": {"$eq": false}}]);
     if (channels.length < 1) {
         logger.warn("twcastLiveHeartbeat() no registered channels");
         return;
@@ -299,7 +299,7 @@ export async function twcastChannelsStats(filtersRun: FiltersConfig) {
     })
 
     logger.info("twcastChannelsStats() fetching channels data...");
-    let channels = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [{"platform": {"$eq": "twitcasting"}}]);
+    let channels = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [{"platform": {"$eq": "twitcasting"}}, {"is_retired": {"$eq": false}}]);
     if (channels.length < 1) {
         logger.warn("twcastChannelsStats() no registered channels");
         return;

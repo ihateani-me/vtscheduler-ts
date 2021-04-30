@@ -128,7 +128,7 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: F
                                             .mapValues((o) => _.map(o, (m) => m.id))
                                             .value();
     logger.info("youtubeVideoFeeds() fetching channels data...");
-    let channels: ChannelsProps[] = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], {"id": 1, "group": 1}, [{"platform": {"$eq": "youtube"}}]);
+    let channels: ChannelsProps[] = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], {"id": 1, "group": 1}, [{"platform": {"$eq": "youtube"}}, {"is_retired": {"$eq": false}}]);
 
     logger.info("youtubeVideoFeeds() creating job task for xml fetch...");
     const xmls_to_fetch = channels.map((channel) => (
@@ -703,7 +703,7 @@ export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey, filtersRun
     })
 
     logger.info("youtubeChannelsStats() fetching channels data...");
-    let channels_data = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [{"platform": {"$eq": "youtube"}}]);
+    let channels_data = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [{"platform": {"$eq": "youtube"}}, {"is_retired": {"$eq": false}}]);
     if (channels_data.length < 1) {
         logger.warn(`youtubeChannelsStats() skipping because no registered channels`);
         return;

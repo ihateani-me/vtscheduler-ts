@@ -55,7 +55,8 @@ export async function bilibiliVideoFeeds(filtersRun: FiltersConfig) {
         "id": 1,
         "group": 1,
     }, [
-        {"platform": {"$eq": "bilibili"}}
+        {"platform": {"$eq": "bilibili"}},
+        {"is_retired": {"$eq": false}}
     ]);
     if (channels.length < 1) {
         logger.warn("bilibiliVideoFeeds() no registered channels");
@@ -200,7 +201,7 @@ export async function bilibiliLiveHeartbeat(filtersRun: FiltersConfig) {
 
     logger.info("twcastLiveHeartbeat() fetching channels and videos data...");
     let video_sets = await VideosData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [{"platform": {"$eq": "bilibili"}}]);
-    let channels = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], {"id": 1, "room_id": 1, "group": 1}, [{"platform": {"$eq": "bilibili"}}]);
+    let channels = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], {"id": 1, "room_id": 1, "group": 1}, [{"platform": {"$eq": "bilibili"}}, {"is_retired": {"$eq": false}}]);
     if (channels.length < 1) {
         logger.warn("bilibiliLiveHeartbeat() no registered channels");
         return;
@@ -464,7 +465,7 @@ export async function bilibiliLiveHeartbeat(filtersRun: FiltersConfig) {
 
 export async function bilibiliChannelsStats(filtersRun: FiltersConfig) {
     logger.info("bilibiliChannelsStats() fetching channels data...");
-    let channels = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [{"platform": {"$eq": "bilibili"}}]);
+    let channels = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [{"platform": {"$eq": "bilibili"}}, {"is_retired": {"$eq": false}}]);
     if (channels.length < 1) {
         logger.warn("bilibiliChannelsStats() no registered channels");
         return;

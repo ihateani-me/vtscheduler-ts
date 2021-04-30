@@ -19,7 +19,7 @@ import {
 export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, filtersRun: FiltersConfig) {
     logger.info("ttvLiveHeartbeat() fetching channels and videos data...");
     let video_sets = await VideosData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [{"platform": {"$eq": "twitch"}}]);
-    let channels = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], {"id": 1, "user_id": 1, "group": 1}, [{"platform": {"$eq": "twitch"}}]);
+    let channels = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], {"id": 1, "user_id": 1, "group": 1}, [{"platform": {"$eq": "twitch"}}, {"is_retired": {"$eq": false}}]);
     if (channels.length < 1) {
         logger.warn("ttvLiveHeartbeat() no registered channels");
         return;
@@ -263,7 +263,7 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, filtersRun: FiltersC
 export async function ttvLiveSchedules(ttvAPI: TwitchGQL, filtersRun: FiltersConfig) {
     logger.info("ttvLiveSchedules() fetching channels and videos data...");
     let videoSets = await VideosData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [{"platform": {"$eq": "twitch"}}]);
-    let channels = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], {"id": 1, "user_id": 1, "group": 1}, [{"platform": {"$eq": "twitch"}}]);
+    let channels = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], {"id": 1, "user_id": 1, "group": 1}, [{"platform": {"$eq": "twitch"}}, {"is_retired": {"$eq": false}}]);
     if (channels.length < 1) {
         logger.warn("ttvLiveSchedules() no registered channels");
         return;
@@ -346,7 +346,7 @@ export async function ttvLiveSchedules(ttvAPI: TwitchGQL, filtersRun: FiltersCon
 
 export async function ttvChannelsStats(ttvAPI: TwitchHelix, filtersRun: FiltersConfig) {
     logger.info("ttvChannelsStats() fetching channels data...");
-    let channels = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [{"platform": {"$eq": "twitch"}}]);
+    let channels = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [{"platform": {"$eq": "twitch"}}, {"is_retired": {"$eq": false}}]);
     if (channels.length < 1) {
         logger.warn("ttvChannelsStats() no registered channels");
         return;

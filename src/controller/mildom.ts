@@ -21,7 +21,7 @@ import {
 export async function mildomLiveHeartbeat(mildomAPI: MildomAPI, filtersRun: FiltersConfig) {
     logger.info("mildomLiveHeartbeat() fetching channels and videos data...");
     let video_sets = await VideosData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [{"platform": {"$eq": "mildom"}}]);
-    let channels = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], {"id": 1, "group": 1}, [{"platform": {"$eq": "mildom"}}]);
+    let channels = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], {"id": 1, "group": 1}, [{"platform": {"$eq": "mildom"}}, {"is_retired": {"$eq": false}}]);
     if (channels.length < 1) {
         logger.warn("mildomLiveHeartbeat() no registered channels");
         return;
@@ -231,7 +231,7 @@ export async function mildomLiveHeartbeat(mildomAPI: MildomAPI, filtersRun: Filt
 
 export async function mildomChannelsStats(mildomAPI: MildomAPI, filtersRun: FiltersConfig) {
     logger.info("mildomChannelStats() fetching channels data...");
-    let channels = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [{"platform": {"$eq": "mildom"}}]);
+    let channels = await ChannelsData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [{"platform": {"$eq": "mildom"}}, {"is_retired": {"$eq": false}}]);
     if (channels.length < 1) {
         logger.warn("mildomChannelStats() no registered channels");
         return;
