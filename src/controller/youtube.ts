@@ -269,7 +269,7 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: F
 
         // check if premiere
         let is_premiere = false;
-        if (["live", "upcoming"].includes(video_type)) {
+        if (["live", "upcoming", "past"].includes(video_type)) {
             // https://en.wikipedia.org/wiki/ISO_8601#Durations
             // Youtube themselves decided to use P0D if there's no duration
             let iso86010S = ["P0D", "PT0S"];
