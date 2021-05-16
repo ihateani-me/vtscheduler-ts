@@ -1,5 +1,9 @@
 import { createSchema, Type, typedModel, ExtractProps } from "ts-mongoose";
+
 import { FiltersDataConfig, LiveStatus, PlatformData } from "./extras";
+import { logger } from "../utils/logger";
+
+
 
 const VideosSchema = createSchema(
     {
@@ -45,6 +49,7 @@ export type VideoProps = ExtractProps<typeof VideosSchema>
 export const ViewersData = typedModel("ViewersData", ViewersDataSchema);
 export const VideosData = typedModel("VideosData", VideosSchema, undefined, undefined, {
     filteredFind: async function (excluded: FiltersDataConfig, included: FiltersDataConfig, project?: {}, extras?: {}[]): Promise<VideoProps[]> {
+        
         let requestConfig: any[] = [];
         if (excluded["groups"].length > 0) {
             requestConfig.push({
@@ -71,6 +76,7 @@ export const VideosData = typedModel("VideosData", VideosSchema, undefined, unde
                 requestConfig.push(extras[i]);
             }
         }
+        logger.info(`Fetching videos with this query ${JSON.stringify(requestConfig)}`);
         let send: any = {};
         if (requestConfig.length > 0) {
             send["$and"] = requestConfig;

@@ -1,5 +1,7 @@
 import { createSchema, Type, typedModel, ExtractProps } from "ts-mongoose";
+
 import { FiltersDataConfig, PlatformData } from "./extras";
+import { logger } from "../utils/logger";
 
 const ChannelsSchema = createSchema(
     {
@@ -70,6 +72,7 @@ export const ChannelsData = typedModel("ChannelsData", ChannelsSchema, undefined
                 requestConfig.push(extras[i]);
             }
         }
+        logger.info(`Fetching channels with this query ${JSON.stringify(requestConfig)}`);
         let send: any = {};
         if (requestConfig.length > 0) {
             send["$and"] = requestConfig;
