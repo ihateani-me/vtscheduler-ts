@@ -138,7 +138,8 @@ export async function youtubeChannelDataset(dataset: VTuberModel[], apiKeys: YTR
             viewCount: viewCount,
             videoCount: videoCount,
             group: group,
-            platform: "youtube"
+            platform: "youtube",
+            is_retired: false,
         }
         return finalData;
     });

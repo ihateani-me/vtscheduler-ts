@@ -73,6 +73,7 @@ export async function mildomChannelsDataset(mildomAPI: MildomAPI, dataset: VTube
             "level": result["level"],
             "group": result["group"],
             "platform": "mildom",
+            is_retired: false,
         }
         insertData.push(mappedNew);
     }

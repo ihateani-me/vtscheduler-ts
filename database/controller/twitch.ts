@@ -56,6 +56,7 @@ export async function ttvChannelDataset(dataset: VTuberModel[], ttvAPI: TwitchHe
             // @ts-ignore
             "group": channels_map["id"],
             "platform": "twitch",
+            is_retired: false,
         }
         newChannels.push(mappedUpdate);
     }

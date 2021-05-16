@@ -100,7 +100,8 @@ export async function bilibiliChannelsDataset(dataset: VTuberModel[]) {
             "thumbnail": infoData["face"],
             "group": group,
             "is_live": infoData["live_room"]["liveStatus"] === 1 ? true : false,
-            "platform": "bilibili"
+            "platform": "bilibili",
+            is_retired: false,
         }
         insertData.push(newData);
     }

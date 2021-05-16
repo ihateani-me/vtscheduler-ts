@@ -82,7 +82,8 @@ export async function twcastChannelsDataset(dataset: VTuberModel[]) {
             "followerCount": udata["backerCount"],
             "level": udata["level"],
             "group": raw_res["group"],
-            "platform": "twitcasting"
+            "platform": "twitcasting",
+            is_retired: false,
         }
         insertData.push(mappedNew);
     }
