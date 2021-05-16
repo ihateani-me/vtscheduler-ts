@@ -69,51 +69,6 @@ function checkForErrorsAndRotate(apiReponses: any, apiKeys: YTRotatingAPIKey) {
     return true;
 }
 
-async function checkIfMembershipStream(session: AxiosInstance, apiKeys: YTRotatingAPIKey, liveChatId: string): Promise<boolean | null> {
-    let liveChatRequest = await session.get("https://youtube.googleapis.com/youtube/v3/liveChat/messages", {
-        params: {
-            "liveChatId": liveChatId,
-            "part": "id",
-            "maxResults": 1,
-            "key": apiKeys.get(),
-        },
-        responseType: "json"
-    }).catch((err) => {
-        if (err.response) {
-            // return response head
-            return err.response;
-        } else {
-            logger.error(`checkIfMembershipStream() request error occured when trying to fetch chat ID ${liveChatId}, ${err.message}`);
-            return undefined
-        }
-    })
-    if (typeof liveChatRequest === "undefined") {
-        return null;
-    }
-    let itemsData = _.get(liveChatRequest.data, "items", undefined);
-    if (typeof itemsData !== "undefined" || liveChatRequest.status === 200) {
-        return false;
-    }
-    let errors = _.get(liveChatRequest.data, "error", undefined);
-    if (typeof errors === "undefined" || liveChatRequest.status === 200) {
-        return false;
-    }
-    let errorsData: any[] = _.get(errors, "errors", []);
-    if (errorsData.length < 1) {
-        return false;
-    }
-    let firstErrors = errorsData[0];
-    let errorReason = _.get(firstErrors, "reason", "unknown");
-    if (errorReason === "rateLimitExceeded") {
-        apiKeys.forceRotate();
-        return null;
-    }
-    if (errorReason === "forbidden") {
-        return true;
-    }
-    return null;
-}
-
 export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: FiltersConfig) {
     let session = axios.create({
         headers: {
@@ -353,10 +308,12 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: F
 
             // check if it's a member stream by doing a very scuffed way to check :)
             let liveChatId: string | undefined = _.get(livedetails, "activeLiveChatId", undefined);
-            if (typeof liveChatId !== "undefined") {
-                let isMembers = await checkIfMembershipStream(session, apiKeys, liveChatId);
-                // @ts-ignore
-                finalData["is_member"] = isMembers;
+            if (typeof liveChatId !== "undefined" && !_.has(livedetails, "concurrentViewers")) {
+                // Viewers is hidden, status is live, and liveChat exist
+                // It just means that the stream are most likely to be members-only mode.
+                // This should save a lot of API call :)
+                // And can be more consistent, if they since middleway through
+                finalData["is_member"] = true;
             }
         }
 
@@ -591,15 +548,16 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
         }
         if (video_type === "live") {
             // check if it's a member stream by doing a very scuffed way to check :)
-            // this is even way more scuffed since I need to check if there's old data, and if it's already a boolean or not :)
-            let oldMembersData = _.get(oldData, "is_member", undefined);
-            if (typeof oldMembersData !== "boolean") {
-                // since the old data still doesn't contains or, set to `null`, do a check!
-                let liveChatId: string | undefined = _.get(livedetails, "activeLiveChatId", undefined);
-                if (typeof liveChatId !== "undefined") {
-                    let isMembers = await checkIfMembershipStream(session, apiKeys, liveChatId);
-                    // @ts-ignore
-                    finalData["is_member"] = isMembers;
+            let liveChatId: string | undefined = _.get(livedetails, "activeLiveChatId", undefined);
+            if (typeof liveChatId !== "undefined") {
+                // Viewers is hidden, status is live, and liveChat exist
+                // It just means that the stream are most likely to be members-only mode.
+                // This should save a lot of API call :)
+                // And can be more consistent, if they since middleway through
+                if (!_.has(livedetails, "concurrentViewers")) {
+                    finalData["is_member"] = true;
+                } else {
+                    finalData["is_member"] = false;
                 }
             }
         }
@@ -1079,15 +1037,16 @@ export async function youtubeVideoMissingCheck(apiKeys: YTRotatingAPIKey, filter
         }
         if (video_type === "live") {
             // check if it's a member stream by doing a very scuffed way to check :)
-            // this is even way more scuffed since I need to check if there's old data, and if it's already a boolean or not :)
-            let oldMembersData = _.get(oldData, "is_member", undefined);
-            if (typeof oldMembersData !== "boolean") {
-                // since the old data still doesn't contains or, set to `null`, do a check!
-                let liveChatId: string | undefined = _.get(livedetails, "activeLiveChatId", undefined);
-                if (typeof liveChatId !== "undefined") {
-                    let isMembers = await checkIfMembershipStream(session, apiKeys, liveChatId);
-                    // @ts-ignore
-                    finalData["is_member"] = isMembers;
+            let liveChatId: string | undefined = _.get(livedetails, "activeLiveChatId", undefined);
+            if (typeof liveChatId !== "undefined") {
+                // Viewers is hidden, status is live, and liveChat exist
+                // It just means that the stream are most likely to be members-only mode.
+                // This should save a lot of API call :)
+                // And can be more consistent, if they since middleway through
+                if (!_.has(livedetails, "concurrentViewers")) {
+                    finalData["is_member"] = true;
+                } else {
+                    finalData["is_member"] = false;
                 }
             }
         }
