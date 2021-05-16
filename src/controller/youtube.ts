@@ -137,7 +137,7 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: F
     const video_to_fetch = chunkedVideoFetch.map((videos, idx) => (
         session.get("https://www.googleapis.com/youtube/v3/videos", {
             params: {
-                part: "snippet,liveStreamingDetails,contentDetails",
+                part: "snippet,liveStreamingDetails,contentDetails,statistics",
                 id: _.join(_.map(videos, "video_id"), ","),
                 maxResults: 50,
                 key: apiKeys.get()
@@ -204,6 +204,7 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: F
         let title = snippets["title"];
         let group = res_item["groupData"];
         let contentDetails = _.get(res_item, "contentDetails", {});
+        const statistics: AnyDict = _.get(res_item, "statistics", {});
 
         let publishedAt = snippets["publishedAt"];
 
@@ -308,8 +309,8 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: F
 
             // check if it's a member stream by doing a very scuffed way to check :)
             let liveChatId: string | undefined = _.get(livedetails, "activeLiveChatId", undefined);
-            if (typeof liveChatId !== "undefined" && !_.has(livedetails, "concurrentViewers")) {
-                // Viewers is hidden, status is live, and liveChat exist
+            if (typeof liveChatId !== "undefined" && !_.has(livedetails, "concurrentViewers") && !_.has(statistics, "viewCount")) {
+                // Viewers is hidden, status is live, viewCount are missing, and liveChat exist
                 // It just means that the stream are most likely to be members-only mode.
                 // This should save a lot of API call :)
                 // And can be more consistent, if they since middleway through
@@ -352,7 +353,7 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
     const items_data_promises = chunked_video_set.map((chunks, idx) => (
         session.get("https://www.googleapis.com/youtube/v3/videos", {
             params: {
-                part: "snippet,liveStreamingDetails,contentDetails",
+                part: "snippet,liveStreamingDetails,contentDetails,statistics",
                 id: _.join(_.map(chunks, "id"), ","),
                 maxResults: 50,
                 key: apiKeys.get()
@@ -417,6 +418,7 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
 
         let publishedAt = snippets["publishedAt"];
         let contentDetails = _.get(res_item, "contentDetails", {});
+        const statistics: AnyDict = _.get(res_item, "statistics", {});
 
         let start_time = null;
         let ended_time = null;
@@ -550,11 +552,11 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
             // check if it's a member stream by doing a very scuffed way to check :)
             let liveChatId: string | undefined = _.get(livedetails, "activeLiveChatId", undefined);
             if (typeof liveChatId !== "undefined") {
-                // Viewers is hidden, status is live, and liveChat exist
+                // Viewers is hidden, status is live, viewCount are missing, and liveChat exist
                 // It just means that the stream are most likely to be members-only mode.
                 // This should save a lot of API call :)
                 // And can be more consistent, if they since middleway through
-                if (!_.has(livedetails, "concurrentViewers")) {
+                if (!_.has(livedetails, "concurrentViewers") && !_.has(statistics, "viewCount")) {
                     finalData["is_member"] = true;
                 } else {
                     finalData["is_member"] = false;
@@ -852,7 +854,7 @@ export async function youtubeVideoMissingCheck(apiKeys: YTRotatingAPIKey, filter
     const items_data_promises = chunked_video_set.map((chunks, idx) => (
         session.get("https://www.googleapis.com/youtube/v3/videos", {
             params: {
-                part: "snippet,liveStreamingDetails,contentDetails",
+                part: "snippet,liveStreamingDetails,contentDetails,statistics",
                 id: _.join(_.map(chunks, "id"), ","),
                 maxResults: 50,
                 key: apiKeys.get()
@@ -906,6 +908,7 @@ export async function youtubeVideoMissingCheck(apiKeys: YTRotatingAPIKey, filter
 
         let publishedAt = snippets["publishedAt"];
         let contentDetails = _.get(res_item, "contentDetails", {});
+        const statistics: AnyDict = _.get(res_item, "statistics", {});
 
         let start_time = null;
         let ended_time = null;
@@ -1039,11 +1042,11 @@ export async function youtubeVideoMissingCheck(apiKeys: YTRotatingAPIKey, filter
             // check if it's a member stream by doing a very scuffed way to check :)
             let liveChatId: string | undefined = _.get(livedetails, "activeLiveChatId", undefined);
             if (typeof liveChatId !== "undefined") {
-                // Viewers is hidden, status is live, and liveChat exist
+                // Viewers is hidden, status is live, viewCount are missing, and liveChat exist
                 // It just means that the stream are most likely to be members-only mode.
                 // This should save a lot of API call :)
                 // And can be more consistent, if they since middleway through
-                if (!_.has(livedetails, "concurrentViewers")) {
+                if (!_.has(livedetails, "concurrentViewers") && !_.has(statistics, "viewCount")) {
                     finalData["is_member"] = true;
                 } else {
                     finalData["is_member"] = false;
