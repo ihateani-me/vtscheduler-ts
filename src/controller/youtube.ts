@@ -1,6 +1,6 @@
 import _ from "lodash";
 import axios, { AxiosInstance } from "axios";
-import { DateTime } from "luxon";
+import { DateTime, Duration } from "luxon";
 
 import { logger } from "../utils/logger";
 import { YTRotatingAPIKey } from "../utils/ytkey_rotator";
@@ -473,8 +473,19 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
             if (typeof durationTotal === "string") {
                 if (!iso86010S.includes(durationTotal)) {
                     is_premiere = true;
+                    // Set the duration in seconds
+                    duration = Math.ceil(Duration.fromISO(durationTotal).toMillis() / 1000);
                 } else {
                     is_premiere = false;
+                }
+            }
+        }
+        if (is_premiere) {
+            let durationTotal = _.get(contentDetails, "duration", undefined);
+            if (typeof durationTotal === "string") {
+                const parse = Duration.fromISO(durationTotal);
+                if (parse.isValid) {
+                    duration = Math.ceil(parse.toMillis() / 1000);
                 }
             }
         }
