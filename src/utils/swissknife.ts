@@ -1,9 +1,11 @@
+export type Nullable = null | undefined;
+
 /**
  * Check if the variable is a null type or not.
  * @param { any } key - things that want to be checked.
  * @returns { boolean } `true` or `false`
  */
-export function isNone(key: any, checkEmpty: boolean = false): boolean {
+export function isNone(key: any, checkEmpty: boolean = false): key is Nullable {
     if (typeof key === "undefined") {
         return true;
     } else if (key === null) {
@@ -42,11 +44,11 @@ export function filterEmpty(data: any[]): any[] {
     if (isNone(data)) {
         return [];
     }
-    data.forEach((val => {
+    data.forEach((val) => {
         if (val) {
             filtered.push(val);
-        };
-    }));
+        }
+    });
     return filtered;
 }
 
