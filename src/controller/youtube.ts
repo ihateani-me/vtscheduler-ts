@@ -40,6 +40,47 @@ interface MentionedData {
 }
 
 const findVideoRegex = /<yt:videoId>(.*?)<\/yt:videoId>\s+\S+\s+<title>(.*?)<\/title>/gim;
+const EXPLICIT_DISALLOWED_MENTION = [
+    // Animare cafe
+    "UC8BS2IrE9NmxKLX7ObRVyxQ",
+    // Hololive official
+    "UCJFZiqLMntJufDCHc6bQixg",
+    // Hololive English
+    "UCotXwY6s8pWmuWd_snKYjhg",
+    // Hololive Indonesia
+    "UCfrWoRGlawPQDQxxeIDRP0Q",
+    // Holostars Official
+    "UCWsfcksUUpoEvhia0_ut0bA",
+    // Kamitsubaki
+    "UCAOhUv73jM5iCpOhuJOQzxA",
+    // Nijisanji
+    "UCX7YkU9nEeaoZbkVLVajcMg",
+    // Nijisanji English
+    "UC-JSeFfovhNsEhftt1WHMvg",
+    // Norio
+    "UCEd6G9T-jLieKWKVfpTlAKg",
+    // SugarLyric
+    "UCoieZAlwgK3uLkIYiJARDQw",
+    // VAPArt
+    "UCr83W-PdmmbstrvnCn9kdZQ",
+];
+
+/*
+    If a channel match one of key in here,
+    then it will be checked against the list that would be disallowed
+    if match anything on disallowed, it would not be added.
+*/
+const GREY_AREA_DISALLOWED_MENTION = {
+    "UC4YaOt1yT-ZeyB0OmxHgolA": ["UCbFwe3COkDrbNsbMyGNCsDg", "UCArUdy5xj0i0cTuhPHRVMpw"],
+    UCbFwe3COkDrbNsbMyGNCsDg: ["UC4YaOt1yT-ZeyB0OmxHgolA", "UCArUdy5xj0i0cTuhPHRVMpw"],
+    UCArUdy5xj0i0cTuhPHRVMpw: ["UCbFwe3COkDrbNsbMyGNCsDg", "UC4YaOt1yT-ZeyB0OmxHgolA"],
+    "UC2hA-6M66dE2Tt_4xM8K9wQ": ["UCjtEttSHpJacfd7a6fc4VXQ"],
+    UCjtEttSHpJacfd7a6fc4VXQ: ["UC2hA-6M66dE2Tt_4xM8K9wQ"],
+    "UC1CfXB_kRs3C-zaeTG3oGyg": ["UCHj_mh57PVMXhAUDphUQDFA"],
+    UCHj_mh57PVMXhAUDphUQDFA: ["UC1CfXB_kRs3C-zaeTG3oGyg"],
+    UC1suqwovbL1kzsoaZgFZLKg: ["UCp3tgHXw_HI0QMk1K8qh3gQ"],
+    UCp3tgHXw_HI0QMk1K8qh3gQ: ["UC1suqwovbL1kzsoaZgFZLKg"],
+};
 
 function getBestThumbnail(thumbnails: any, video_id: string): string {
     if (_.has(thumbnails, "maxres")) {
@@ -272,12 +313,20 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: F
         const statistics: AnyDict = _.get(res_item, "statistics", {});
 
         let [mentionChID, mentionedName] = matchDescriptionMentions(snippets["description"]);
-
+        let disallowedChannelMentions =
+            GREY_AREA_DISALLOWED_MENTION[channel_id as keyof typeof GREY_AREA_DISALLOWED_MENTION];
+        if (!Array.isArray(disallowedChannelMentions)) {
+            disallowedChannelMentions = [];
+        }
         const actualChannelMentioned = [] as MentionedData[];
         mentionChID.forEach((r) => {
             const details = _.find(fullChannels, (o) => o.id === r.id);
             if (!isNone(details)) {
-                if (details.id !== channel_id) {
+                if (
+                    details.id !== channel_id &&
+                    !EXPLICIT_DISALLOWED_MENTION.includes(details.id) &&
+                    !disallowedChannelMentions.includes(details.id)
+                ) {
                     actualChannelMentioned.push({ id: details.id, platform: r.platform });
                 }
             }
@@ -285,7 +334,11 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: F
         mentionedName.forEach((r) => {
             const details = _.find(fullChannels, (o) => o.name === r);
             if (!isNone(details)) {
-                if (details.id !== channel_id) {
+                if (
+                    details.id !== channel_id &&
+                    !EXPLICIT_DISALLOWED_MENTION.includes(details.id) &&
+                    !disallowedChannelMentions.includes(details.id)
+                ) {
                     actualChannelMentioned.push({ id: details.id, platform: details.platform });
                 }
             }
@@ -539,12 +592,21 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
         const statistics: AnyDict = _.get(res_item, "statistics", {});
 
         let [mentionChID, mentionedName] = matchDescriptionMentions(snippets["description"]);
+        let disallowedChannelMentions =
+            GREY_AREA_DISALLOWED_MENTION[channel_id as keyof typeof GREY_AREA_DISALLOWED_MENTION];
+        if (!Array.isArray(disallowedChannelMentions)) {
+            disallowedChannelMentions = [];
+        }
 
         const actualChannelMentioned = [] as MentionedData[];
         mentionChID.forEach((r) => {
             const details = _.find(fullChannels, (o) => o.id === r.id);
             if (!isNone(details)) {
-                if (details.id !== channel_id) {
+                if (
+                    details.id !== channel_id &&
+                    !EXPLICIT_DISALLOWED_MENTION.includes(details.id) &&
+                    !disallowedChannelMentions.includes(details.id)
+                ) {
                     actualChannelMentioned.push({ id: details.id, platform: r.platform });
                 }
             }
@@ -552,7 +614,11 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
         mentionedName.forEach((r) => {
             const details = _.find(fullChannels, (o) => o.name === r);
             if (!isNone(details)) {
-                if (details.id !== channel_id) {
+                if (
+                    details.id !== channel_id &&
+                    !EXPLICIT_DISALLOWED_MENTION.includes(details.id) &&
+                    !disallowedChannelMentions.includes(details.id)
+                ) {
                     actualChannelMentioned.push({ id: details.id, platform: details.platform });
                 }
             }
