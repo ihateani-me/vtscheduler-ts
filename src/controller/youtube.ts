@@ -37,6 +37,7 @@ interface XMLFetchedData {
 interface MentionedData {
     id: string;
     platform: "twitch" | "youtube" | "bilibili" | "twitcasting" | "mildom";
+    isVanity?: boolean;
 }
 
 const findVideoRegex = /<yt:videoId>(.*?)<\/yt:videoId>\s+\S+\s+<title>(.*?)<\/title>/gim;
@@ -121,24 +122,34 @@ function checkForErrorsAndRotate(apiReponses: any, apiKeys: YTRotatingAPIKey) {
     return true;
 }
 
-function iterateMatchAllSelect(iteration: IterableIterator<RegExpMatchArray>, index = 0): string[] {
+function iterateMatchAllSelect(
+    iteration: IterableIterator<RegExpMatchArray>,
+    index: number | number[] = 0
+): string[] {
     const collectedString = [];
     let nextData = iteration.next();
     while (!nextData.done) {
-        collectedString.push(nextData.value[index]);
+        if (Array.isArray(index)) {
+            index.forEach((idx) => {
+                collectedString.push(nextData.value[idx]);
+            });
+        } else {
+            collectedString.push(nextData.value[index]);
+        }
         nextData = iteration.next();
     }
     return collectedString;
 }
 
 function matchPlatformIDs(description: string) {
-    const youtubeRE = /https?\:\/{2}[w]{3}?\.?youtube\.com\/channel\/([a-z0-9\-\_]+)/gi;
+    const youtubeRE = /https?\:\/{2}[w]{3}?\.?youtube\.com\/(channel|c|user)\/([a-z0-9\-\_]+)/gi;
     const twitchTVRe = /https?\:\/{2}twitch\.tv\/([a-z0-9\-\_]+)/gi;
-    const youtubeMatched = iterateMatchAllSelect(description.matchAll(youtubeRE), 1).flatMap((res) => {
-        return { id: res.trim(), platform: "youtube" };
+    const youtubeMatched = iterateMatchAllSelect(description.matchAll(youtubeRE), [1, 2]).flatMap((res) => {
+        const [chPath, channelId] = res as unknown as string[];
+        return { id: channelId.trim(), platform: "youtube", isVanity: chPath !== "channel" };
     }) as unknown as MentionedData[];
     const twitchMatched = iterateMatchAllSelect(description.matchAll(twitchTVRe), 1).flatMap((res) => {
-        return { id: res.trim(), platform: "twitch" };
+        return { id: res.trim(), platform: "twitch", isVanity: false };
     }) as unknown as MentionedData[];
     return [...youtubeMatched, ...twitchMatched];
 }
@@ -178,7 +189,7 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: F
     let fullChannels: ChannelsProps[] = await ChannelsData.filteredFind(
         filtersRun["exclude"],
         filtersRun["include"],
-        { id: 1, group: 1, name: 1, platform: 1 },
+        { id: 1, yt_custom_id: 1, group: 1, name: 1, platform: 1 },
         [{ is_retired: { $eq: false } }]
     );
     let channels = fullChannels.filter((e) => e.platform === "youtube");
@@ -320,7 +331,10 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: F
         }
         const actualChannelMentioned = [] as MentionedData[];
         mentionChID.forEach((r) => {
-            const details = _.find(fullChannels, (o) => o.id === r.id);
+            let details = _.find(fullChannels, (o) => o.id === r.id);
+            if (r.isVanity) {
+                details = _.find(fullChannels, (o) => o.yt_custom_id === r.id);
+            }
             if (!isNone(details)) {
                 if (
                     details.id !== channel_id &&
@@ -506,7 +520,7 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
     let fullChannels: ChannelsProps[] = await ChannelsData.filteredFind(
         filtersRun["exclude"],
         filtersRun["include"],
-        { id: 1, name: 1, platform: 1 },
+        { id: 1, yt_custom_id: 1, name: 1, platform: 1 },
         [{ is_retired: { $eq: false } }]
     );
     // Some got caught in this
@@ -977,6 +991,7 @@ export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey, filtersRun
 
         let title = snippets["title"];
         let desc = snippets["description"];
+        let customUrl = snippets["customUrl"] || null;
 
         let thumbs = getBestThumbnail(snippets["thumbnails"], "");
         let subsCount = 0,
@@ -1032,6 +1047,7 @@ export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey, filtersRun
         let finalData: ChannelsProps = {
             id: ch_id,
             name: title,
+            yt_custom_id: customUrl,
             description: desc,
             thumbnail: thumbs,
             subscriberCount: subsCount,
