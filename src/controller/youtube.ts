@@ -125,14 +125,16 @@ function checkForErrorsAndRotate(apiReponses: any, apiKeys: YTRotatingAPIKey) {
 function iterateMatchAllSelect(
     iteration: IterableIterator<RegExpMatchArray>,
     index: number | number[] = 0
-): string[] {
+): (string | string[])[] {
     const collectedString = [];
     let nextData = iteration.next();
     while (!nextData.done) {
         if (Array.isArray(index)) {
+            const collected: string[] = [];
             index.forEach((idx) => {
-                collectedString.push(nextData.value[idx]);
+                collected.push(nextData.value[idx]);
             });
+            collectedString.push(collected);
         } else {
             collectedString.push(nextData.value[index]);
         }
@@ -145,11 +147,22 @@ function matchPlatformIDs(description: string) {
     const youtubeRE = /https?\:\/{2}[w]{3}?\.?youtube\.com\/(channel|c|user)\/([a-z0-9\-\_]+)/gi;
     const twitchTVRe = /https?\:\/{2}twitch\.tv\/([a-z0-9\-\_]+)/gi;
     const youtubeMatched = iterateMatchAllSelect(description.matchAll(youtubeRE), [1, 2]).flatMap((res) => {
-        const [chPath, channelId] = res as unknown as string[];
-        return { id: channelId.trim(), platform: "youtube", isVanity: chPath !== "channel" };
+        if (Array.isArray(res) && res.length === 2) {
+            const [chPath, channelId] = res as unknown as string[];
+            return { id: channelId.trim(), platform: "youtube", isVanity: chPath !== "channel" };
+        } else if (Array.isArray(res)) {
+            const counted = res.length;
+            if (counted === 1 && typeof res[0] === "string") {
+                return { id: res[0].trim(), platform: "youtube", isVanity: false };
+            }
+        } else if (typeof res === "string") {
+            return { id: res.trim(), platform: "youtube", isVanity: false };
+        }
+        return { id: "", platform: "youtube", isVanity: false };
     }) as unknown as MentionedData[];
     const twitchMatched = iterateMatchAllSelect(description.matchAll(twitchTVRe), 1).flatMap((res) => {
-        return { id: res.trim(), platform: "twitch", isVanity: false };
+        const niceName = res as string;
+        return { id: niceName.trim(), platform: "twitch", isVanity: false };
     }) as unknown as MentionedData[];
     return [...youtubeMatched, ...twitchMatched];
 }
@@ -162,6 +175,7 @@ function matchDescriptionMentions(description: string): [MentionedData[], string
 
     const allMatchedChannelURL = matchPlatformIDs(description);
     const allMatchedMentionName = iterateMatchAllSelect(description.matchAll(mentionChannelMatch), 1).flatMap(
+        // @ts-ignore
         (res) => res.trim()
     );
     return [allMatchedChannelURL, allMatchedMentionName];
@@ -614,7 +628,10 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
 
         const actualChannelMentioned = [] as MentionedData[];
         mentionChID.forEach((r) => {
-            const details = _.find(fullChannels, (o) => o.id === r.id);
+            let details = _.find(fullChannels, (o) => o.id === r.id);
+            if (r.isVanity) {
+                details = _.find(fullChannels, (o) => o.yt_custom_id === r.id);
+            }
             if (!isNone(details)) {
                 if (
                     details.id !== channel_id &&
@@ -626,7 +643,7 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
             }
         });
         mentionedName.forEach((r) => {
-            const details = _.find(fullChannels, (o) => o.name === r);
+            const details = fullChannels.find((o) => o.name === r);
             if (!isNone(details)) {
                 if (
                     details.id !== channel_id &&
