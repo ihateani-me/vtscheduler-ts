@@ -270,6 +270,7 @@ export class TwitchHelix {
             Authorization: `Bearer ${this.bearer_token}`,
             "Client-ID": this.cid,
         };
+        console.info(this.bearer_token);
         const currentTime = DateTime.now().toUTC();
         const relativeTime = currentTime.startOf("week").toFormat(`yyyy-MM-dd'T'HH':'mm':'ss'.'SSS'Z'`);
         let params: string[] = [
@@ -279,8 +280,8 @@ export class TwitchHelix {
             `start_time=${relativeTime}`,
         ];
         let response = await this.getReq(this.BASE_URL + "schedule", params, headers);
-        let scheduleSegments: StreamScheduleAPI[] = _.get(response.data, "data.segments");
-        let loginName = _.get(response.data, "data.broadcaster_login");
+        let scheduleSegments: StreamScheduleAPI[] = _.get(response, "data.segments");
+        let loginName = _.get(response, "data.broadcaster_login");
         if (!Array.isArray(scheduleSegments)) {
             return [[], null];
         }

@@ -334,9 +334,9 @@ export async function ttvLiveSchedules(ttvAPI: TwitchHelix, filtersRun: FiltersC
             })
             .catch((err) => {
                 logger.error(
-                    `ttvLiveSchedules() an error occured while trying to fetch ${
+                    `ttvLiveSchedules() an error occured while trying to fetch ${login.uuid} (${
                         login.id
-                    } schedules, ${err.toString()}`
+                    }) schedules, ${err.toString()}`
                 );
                 return undefined;
             })
