@@ -5,13 +5,13 @@ import { TwitchGQL, TwitchHelix } from "../utils/twitchapi";
 import { LockKey } from "./utils";
 
 export class TwitchTasks {
-    private channelLock: LockKey
-    private liveLock: LockKey
-    private videosLock: LockKey
+    private channelLock: LockKey;
+    private liveLock: LockKey;
+    private videosLock: LockKey;
 
-    filtersUsage: FiltersConfig
-    ttvAPI: TwitchHelix
-    ttvGQL: TwitchGQL
+    filtersUsage: FiltersConfig;
+    ttvAPI: TwitchHelix;
+    ttvGQL: TwitchGQL;
 
     constructor(ttvAPI: TwitchHelix, filtersUsage: FiltersConfig) {
         logger.info("TwitchTasks() Initializing task handler...");
@@ -69,7 +69,7 @@ export class TwitchTasks {
         }
         logger.info("handleTTVSchedules() executing job...");
         try {
-            await ttvLiveSchedules(this.ttvGQL, this.filtersUsage);
+            await ttvLiveSchedules(this.ttvAPI, this.filtersUsage);
         } catch (e) {
             this.videosLock.unlock();
             logger.error(`handleTTVSchedules() an error occured while processing the task: ${e.toString()}`);

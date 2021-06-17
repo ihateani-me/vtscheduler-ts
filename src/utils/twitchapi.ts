@@ -8,25 +8,34 @@ import { resolveDelayCrawlerPromises } from "./crawler";
 
 import { version as vt_version } from "../../package.json";
 
-
 interface AnyDict {
     [key: string]: any;
 }
 
+interface StreamScheduleAPI {
+    id: string;
+    canceled_until: string | null;
+    start_time: string;
+    end_time: string;
+    title: string;
+    channel_id: string;
+    [key: string]: any;
+}
+
 export class TwitchHelix {
-    private cid: string
-    private csc: string
+    private cid: string;
+    private csc: string;
 
-    private nextReset: number
-    private remainingBucket: number
+    private nextReset: number;
+    private remainingBucket: number;
 
-    private session: AxiosInstance
-    private authorized: boolean
-    private bearer_token?: string
-    private expires: number
+    private session: AxiosInstance;
+    private authorized: boolean;
+    private bearer_token?: string;
+    private expires: number;
 
-    BASE_URL: string
-    OAUTH_URL: string
+    BASE_URL: string;
+    OAUTH_URL: string;
 
     constructor(client_id: string, client_secret: string) {
         this.bearer_token = undefined;
@@ -34,8 +43,10 @@ export class TwitchHelix {
         this.cid = client_id;
         this.csc = client_secret;
         this.session = axios.create({
-            headers: {"User-Agent": `vtschedule-ts/${vt_version} (https://github.com/ihateani-me/vtscheduler-ts)`}
-        })
+            headers: {
+                "User-Agent": `vtschedule-ts/${vt_version} (https://github.com/ihateani-me/vtscheduler-ts)`,
+            },
+        });
         this.authorized = false;
 
         this.BASE_URL = "https://api.twitch.tv/helix/";
@@ -46,14 +57,14 @@ export class TwitchHelix {
 
         this.session.interceptors.response.use(this.handleRateLimitResponse.bind(this), (error) => {
             return Promise.reject(error);
-        })
+        });
         this.session.interceptors.request.use(this.handleRateLimitRequest.bind(this), (error) => {
             return Promise.reject(error);
-        })
+        });
     }
 
     private delayBy(ms: number): Promise<void> {
-        return new Promise(resolve => setTimeout(resolve, ms));
+        return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
     private current() {
@@ -64,14 +75,20 @@ export class TwitchHelix {
         if (this.remainingBucket < 1 && this.remainingBucket !== -1) {
             let currentTime = this.current();
             if (this.nextReset > currentTime) {
-                logger.info(`TwitchHelix.handleRateLimit() currently rate limited, delaying by ${this.nextReset - currentTime} seconds`)
+                logger.info(
+                    `TwitchHelix.handleRateLimit() currently rate limited, delaying by ${
+                        this.nextReset - currentTime
+                    } seconds`
+                );
                 await this.delayBy((this.nextReset - currentTime) * 1000);
             }
         }
         return config;
     }
 
-    private handleRateLimitResponse(response: AxiosResponse<any>): AxiosResponse<any> | Promise<AxiosResponse<any>> {
+    private handleRateLimitResponse(
+        response: AxiosResponse<any>
+    ): AxiosResponse<any> | Promise<AxiosResponse<any>> {
         this.nextReset = parseInt(_.get(response.headers, "ratelimit-reset", this.nextReset));
         this.remainingBucket = parseInt(_.get(response.headers, "ratelimit-remaining", this.remainingBucket));
         return response;
@@ -96,8 +113,8 @@ export class TwitchHelix {
             return resp.data;
         } else {
             let resp = await this.session.get(`${url}?${param_url}`, {
-                headers: headers
-            })
+                headers: headers,
+            });
             return resp.data;
         }
     }
@@ -106,20 +123,20 @@ export class TwitchHelix {
     private async postReq(url: string, params: AnyDict, headers: AnyDict = null) {
         if (isNone(headers)) {
             let resp = await this.session.post(url, null, {
-                params: params
-            })
+                params: params,
+            });
             return resp.data;
         } else {
             let resp = await this.session.post(url, null, {
                 params: params,
-                headers: headers
-            })
-            return resp.data;   
+                headers: headers,
+            });
+            return resp.data;
         }
     }
 
     async expireToken() {
-        let params = {"client_id": this.cid, "token": this.bearer_token};
+        let params = { client_id: this.cid, token: this.bearer_token };
         if (this.authorized) {
             logger.info("twitchHelix.expireToken() de-authorizing...");
             await this.postReq(this.OAUTH_URL + "revoke", params);
@@ -131,7 +148,7 @@ export class TwitchHelix {
     }
 
     async authorizeClient() {
-        let params = {"client_id": this.cid, "client_secret": this.csc, "grant_type": "client_credentials"};
+        let params = { client_id: this.cid, client_secret: this.csc, grant_type: "client_credentials" };
         logger.info("twitchHelix.authorizeClient() authorizing...");
         let res = await this.postReq(this.OAUTH_URL + "token", params);
         this.expires = this.current() + res["expires_in"];
@@ -142,7 +159,9 @@ export class TwitchHelix {
 
     async fetchLivesData(usernames: string[]) {
         if (!this.authorized) {
-            logger.warn("twitchHelix.fetchLivesData() You're not authorized yet, requesting new bearer token...");
+            logger.warn(
+                "twitchHelix.fetchLivesData() You're not authorized yet, requesting new bearer token..."
+            );
             await this.authorizeClient();
         }
         if (this.current() >= this.expires) {
@@ -152,19 +171,27 @@ export class TwitchHelix {
 
         let chunkedUsernames = _.chunk(usernames, 90);
         const headers = {
-            "Authorization": `Bearer ${this.bearer_token}`,
-            "Client-ID": this.cid
-        }
+            Authorization: `Bearer ${this.bearer_token}`,
+            "Client-ID": this.cid,
+        };
 
-        const chunkedPromises: Promise<any[]>[] = chunkedUsernames.map((username_sets, idx) => (
-            this.getReq(this.BASE_URL + "streams", _.concat(["first=100"], _.map(username_sets, (o) => `user_login=${o}`)), headers)
-            .then((results: any) => {
-                return results["data"];
-            }).catch((error: any) => {
-                logger.error(`Failed to fetch chunk ${idx}, ${error.toString()}`);
-                return [];
-            })
-        ))
+        const chunkedPromises: Promise<any[]>[] = chunkedUsernames.map((username_sets, idx) =>
+            this.getReq(
+                this.BASE_URL + "streams",
+                _.concat(
+                    ["first=100"],
+                    _.map(username_sets, (o) => `user_login=${o}`)
+                ),
+                headers
+            )
+                .then((results: any) => {
+                    return results["data"];
+                })
+                .catch((error: any) => {
+                    logger.error(`Failed to fetch chunk ${idx}, ${error.toString()}`);
+                    return [];
+                })
+        );
         const chunkedPromisesDelayed = resolveDelayCrawlerPromises(chunkedPromises, 500);
         const returnedPromises = await Promise.all(chunkedPromisesDelayed);
         return _.flattenDeep(returnedPromises);
@@ -172,7 +199,9 @@ export class TwitchHelix {
 
     async fetchChannels(usernames: string[]) {
         if (!this.authorized) {
-            logger.warn("twitchHelix.fetchChannels() You're not authorized yet, requesting new bearer token...");
+            logger.warn(
+                "twitchHelix.fetchChannels() You're not authorized yet, requesting new bearer token..."
+            );
             await this.authorizeClient();
         }
         if (this.current() >= this.expires) {
@@ -181,19 +210,24 @@ export class TwitchHelix {
         }
 
         const headers = {
-            "Authorization": `Bearer ${this.bearer_token}`,
-            "Client-ID": this.cid
-        }
+            Authorization: `Bearer ${this.bearer_token}`,
+            "Client-ID": this.cid,
+        };
         let chunkedUsernames = _.chunk(usernames, 90);
-        const chunkedPromises: Promise<any[]>[] = chunkedUsernames.map((username_sets, idx) => (
-            this.getReq(this.BASE_URL + "users", _.map(username_sets, (o) => `login=${o}`), headers)
-            .then((results: any) => {
-                return results["data"];
-            }).catch((error: any) => {
-                logger.error(`Failed to fetch chunk ${idx}, ${error.toString()}`);
-                return [];
-            })
-        ))
+        const chunkedPromises: Promise<any[]>[] = chunkedUsernames.map((username_sets, idx) =>
+            this.getReq(
+                this.BASE_URL + "users",
+                _.map(username_sets, (o) => `login=${o}`),
+                headers
+            )
+                .then((results: any) => {
+                    return results["data"];
+                })
+                .catch((error: any) => {
+                    logger.error(`Failed to fetch chunk ${idx}, ${error.toString()}`);
+                    return [];
+                })
+        );
         const chunkedPromisesDelayed = resolveDelayCrawlerPromises(chunkedPromises, 500);
         const returnedPromises = await Promise.all(chunkedPromisesDelayed);
         return _.flattenDeep(returnedPromises);
@@ -201,7 +235,9 @@ export class TwitchHelix {
 
     async fetchChannelFollowers(user_id: string) {
         if (!this.authorized) {
-            logger.warn("twitchHelix.fetchChannelFollowers() You're not authorized yet, requesting new bearer token...");
+            logger.warn(
+                "twitchHelix.fetchChannelFollowers() You're not authorized yet, requesting new bearer token..."
+            );
             await this.authorizeClient();
         }
         if (this.current() >= this.expires) {
@@ -210,17 +246,64 @@ export class TwitchHelix {
         }
 
         let headers = {
-            "Authorization": `Bearer ${this.bearer_token}`,
-            "Client-ID": this.cid
-        }
+            Authorization: `Bearer ${this.bearer_token}`,
+            "Client-ID": this.cid,
+        };
         let params: string[] = [`to_id=${user_id}`];
         let res = await this.getReq(this.BASE_URL + "users/follows", params, headers);
         return res;
     }
 
+    async fetchChannelSchedules(user_id: string): Promise<[StreamScheduleAPI[], any]> {
+        if (!this.authorized) {
+            logger.warn(
+                "twitchHelix.fetchChannelSchedules() You're not authorized yet, requesting new bearer token..."
+            );
+            await this.authorizeClient();
+        }
+        if (this.current() >= this.expires) {
+            logger.warn("twitchHelix.fetchChannelSchedules() Token expired, rerequesting...");
+            await this.authorizeClient();
+        }
+
+        let headers = {
+            Authorization: `Bearer ${this.bearer_token}`,
+            "Client-ID": this.cid,
+        };
+        const currentTime = DateTime.now().toUTC();
+        const relativeTime = currentTime.startOf("week").toFormat(`yyyy-MM-dd'T'HH':'mm':'ss'.'SSS'Z'`);
+        let params: string[] = [
+            `broadcaster_id=${user_id}`,
+            "first=25",
+            "utc_offset=0",
+            `start_time=${relativeTime}`,
+        ];
+        let response = await this.getReq(this.BASE_URL + "schedule", params, headers);
+        let scheduleSegments: StreamScheduleAPI[] = _.get(response.data, "data.segments");
+        let loginName = _.get(response.data, "data.broadcaster_login");
+        if (!Array.isArray(scheduleSegments)) {
+            return [[], null];
+        }
+        if (scheduleSegments.length > 0) {
+            scheduleSegments = scheduleSegments.map((res) => {
+                res["channel_id"] = loginName;
+                return res;
+            });
+            // Dont go pass the current hour :)
+            scheduleSegments = scheduleSegments.filter(
+                (e) =>
+                    DateTime.fromISO(e.start_time, { zone: "UTC" }).startOf("hour") >
+                    currentTime.startOf("hour")
+            );
+        }
+        return [scheduleSegments, null];
+    }
+
     async fetchChannelVideos(user_id: string) {
         if (!this.authorized) {
-            logger.warn("twitchHelix.fetchChannelFollowers() You're not authorized yet, requesting new bearer token...");
+            logger.warn(
+                "twitchHelix.fetchChannelFollowers() You're not authorized yet, requesting new bearer token..."
+            );
             await this.authorizeClient();
         }
         if (this.current() >= this.expires) {
@@ -229,9 +312,9 @@ export class TwitchHelix {
         }
 
         let headers = {
-            "Authorization": `Bearer ${this.bearer_token}`,
-            "Client-Id": this.cid
-        }
+            Authorization: `Bearer ${this.bearer_token}`,
+            "Client-Id": this.cid,
+        };
         let params_base: string[] = [`user_id=${user_id}`];
         let main_results = [];
         let res = await this.getReq(this.BASE_URL + "videos", [params_base[0], "first=50"], headers);
@@ -250,7 +333,11 @@ export class TwitchHelix {
         }
         let doExit = false;
         while (!doExit) {
-            let next_res = await this.getReq(this.BASE_URL + "videos", [params_base[0], `after=${next_page}`], headers);
+            let next_res = await this.getReq(
+                this.BASE_URL + "videos",
+                [params_base[0], `after=${next_page}`],
+                headers
+            );
             main_results.push(next_res["data"]);
             if (Object.keys(res["pagination"]).length < 1) {
                 break;
@@ -275,14 +362,14 @@ export class TwitchHelix {
 }
 
 interface StreamScheduleGQL {
-    id: string
-    isCancelled: boolean
-    cancelledUntil: string | null
-    startAt: string
-    endAt: string
-    title: string
-    channel_id: string
-    [key: string]: any
+    id: string;
+    isCancelled: boolean;
+    cancelledUntil: string | null;
+    startAt: string;
+    endAt: string;
+    title: string;
+    channel_id: string;
+    [key: string]: any;
 }
 
 export class TwitchGQL {
@@ -294,10 +381,11 @@ export class TwitchGQL {
             baseURL: "https://gql.twitch.tv",
             headers: {
                 "Client-Id": "kimne78kx3ncx6brgo4mv6wki5h1ko",
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.190 Safari/537.36",
-                "Content-Type": "application/json"
-            }
-        })
+                "User-Agent":
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.190 Safari/537.36",
+                "Content-Type": "application/json",
+            },
+        });
 
         this.gqlSchemas = `query StreamSchedule($login:String,$startDate:Time) {
             user(login:$login) {
@@ -323,9 +411,9 @@ export class TwitchGQL {
         const currentTime = DateTime.now().toUTC();
         const relativeTime = currentTime.toFormat(`yyyy-MM-dd'T'HH':'mm':'ss'.'SSS'Z'`);
         const variables = {
-            "login": loginName,
-            "startDate": isNone(overrideTime) ? relativeTime : overrideTime,
-        }
+            login: loginName,
+            startDate: isNone(overrideTime) ? relativeTime : overrideTime,
+        };
 
         let response: AxiosResponse<any>;
         try {
@@ -335,7 +423,9 @@ export class TwitchGQL {
                 operationName: "StreamSchedule",
             });
         } catch (err) {
-            logger.error(`twitchGQL.getSchedules() failed to fetch schedule for ${loginName}, ${err.toString()}`);
+            logger.error(
+                `twitchGQL.getSchedules() failed to fetch schedule for ${loginName}, ${err.toString()}`
+            );
             return [[], err];
         }
 
@@ -346,7 +436,7 @@ export class TwitchGQL {
         }
         let scheduleSegments: StreamScheduleGQL[] = _.get(schedulesNode, "segments", []);
         if (isNone(scheduleSegments)) {
-            return [[], null]
+            return [[], null];
         }
         if (scheduleSegments.length > 0) {
             scheduleSegments = scheduleSegments.map((res) => {
@@ -354,7 +444,10 @@ export class TwitchGQL {
                 return res;
             });
             // Dont go pass the current hour :)
-            scheduleSegments = scheduleSegments.filter((e) => DateTime.fromISO(e.startAt, {zone: "UTC"}).startOf("hour") > currentTime.startOf("hour"));
+            scheduleSegments = scheduleSegments.filter(
+                (e) =>
+                    DateTime.fromISO(e.startAt, { zone: "UTC" }).startOf("hour") > currentTime.startOf("hour")
+            );
         }
         return [scheduleSegments, null];
     }
