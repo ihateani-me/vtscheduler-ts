@@ -2,38 +2,45 @@
     "$schema": "https://ihateani.me/vt-schemas.json",
     "id": "vshojo",
     "name": "VShojo",
-    "vliver": [
-        {
+    "vliver": [{
             "name": "Nyatasha Nyanners",
-            "twitch": "nyanners"
+            "twitch": "nyanners",
+            "youtube": "UCO5Jvsc_sKuZi3MhnJxrlzQ"
         },
         {
             "name": "Projekt Melody",
-            "twitch": "projektmelody"
+            "twitch": "projektmelody",
+            "youtube": "UC1yoRdFoFJaCY-AGfD9W0wQ"
         },
         {
             "name": "Froot",
-            "twitch": "bsapricot"
+            "twitch": "apricot",
+            "youtube": "UCtNeQ8cUwvAAhBbVbwfGWpg"
         },
         {
             "name": "Zentreya",
-            "twitch": "zentreya"
+            "twitch": "zentreya",
+            "youtube": "UCVLsPBwDtv7n7FZLiOsvhSQ"
         },
         {
             "name": "Silvervale",
-            "twitch": "silvervale"
+            "twitch": "silvervale",
+            "youtube": "UCm8Dj7dQ0oRHXNUXF31kjEw"
         },
         {
             "name": "Ironmouse",
-            "twitch": "ironmouse"
+            "twitch": "ironmouse",
+            "youtube": "UChgPVLjqugDQpRLWvC7zzig"
         },
         {
             "name": "Hime Hajime",
-            "twitch": "hajime"
+            "twitch": "hajime",
+            "youtube": "UCRfz2yOn8C7Jg5zq4Xi67-Q"
         },
         {
             "name": "Veibae",
-            "twitch": "veibae"
+            "twitch": "veibae",
+            "youtube": "UCsBFeCb82qOXyUP19nmD9xw"
         }
     ]
 }
