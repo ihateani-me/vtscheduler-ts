@@ -347,7 +347,14 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: F
         mentionChID.forEach((r) => {
             let details = _.find(fullChannels, (o) => o.id === r.id);
             if (r.isVanity) {
-                details = _.find(fullChannels, (o) => o.yt_custom_id === r.id);
+                // Case insensitive check, since yt_custom_id will be mostly lowercased
+                details = _.find(
+                    fullChannels,
+                    (o) =>
+                        o.yt_custom_id?.toLowerCase() === r.id.toLowerCase() ||
+                        o.yt_custom_id?.toUpperCase() === r.id.toUpperCase() ||
+                        o.yt_custom_id === r.id
+                );
             }
             if (!isNone(details)) {
                 if (
@@ -630,7 +637,14 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
         mentionChID.forEach((r) => {
             let details = _.find(fullChannels, (o) => o.id === r.id);
             if (r.isVanity) {
-                details = _.find(fullChannels, (o) => o.yt_custom_id === r.id);
+                // Case insensitive check, since yt_custom_id will be mostly lowercased
+                details = _.find(
+                    fullChannels,
+                    (o) =>
+                        o.yt_custom_id?.toLowerCase() === r.id.toLowerCase() ||
+                        o.yt_custom_id?.toUpperCase() === r.id.toUpperCase() ||
+                        o.yt_custom_id === r.id
+                );
             }
             if (!isNone(details)) {
                 if (
