@@ -4,12 +4,7 @@ import { DateTime } from "luxon";
 
 import { VTuberModel } from "../dataset/model";
 
-import {
-    ChannelsData,
-    ChannelsProps,
-    ChannelStatsHistData,
-    ChannelStatsHistProps
-} from "../../src/models";
+import { ChannelsData, ChannelsProps, ChannelStatsHistData, ChannelStatsHistProps } from "../../src/models";
 import { logger } from "../../src/utils/logger";
 import { fallbackNaN, filterEmpty } from "../../src/utils/swissknife";
 import { YTRotatingAPIKey } from "../../src/utils/ytkey_rotator";
@@ -37,11 +32,14 @@ function getBestThumbnail(thumbnails: any, video_id: string): string {
 export async function youtubeChannelDataset(dataset: VTuberModel[], apiKeys: YTRotatingAPIKey) {
     let session = axios.create({
         headers: {
-            "User-Agent": `vtschedule-ts/${vt_version} (https://github.com/ihateani-me/vtscheduler-ts)`
-        }
-    })
+            "User-Agent": `vtschedule-ts/${vt_version} (https://github.com/ihateani-me/vtscheduler-ts)`,
+        },
+    });
 
-    let parsed_yt_channel: ChannelsProps[] = await ChannelsData.find({"group": {"$eq": dataset[0].id}, "platform": {"$eq": "youtube"}});
+    let parsed_yt_channel: ChannelsProps[] = await ChannelsData.find({
+        group: { $eq: dataset[0].id },
+        platform: { $eq: "youtube" },
+    });
     let all_parsed_ids = _.map(parsed_yt_channel, "id");
     let group = dataset[0]["id"];
 
@@ -50,7 +48,7 @@ export async function youtubeChannelDataset(dataset: VTuberModel[], apiKeys: YTR
         if (all_parsed_ids.includes(data["youtube"])) {
             return null;
         }
-        return {"id": data["youtube"], "group": data["id"], "name": data["name"]};
+        return { id: data["youtube"], group: data["id"], name: data["name"] };
     });
 
     toBeParsed = filterEmpty(toBeParsed);
@@ -60,37 +58,43 @@ export async function youtubeChannelDataset(dataset: VTuberModel[], apiKeys: YTR
     }
 
     const chunked_channels_set = _.chunk(toBeParsed, 40);
-    logger.info(`youtubeChannelDataset(${group}) checking channels with total of ${toBeParsed.length} channels (${chunked_channels_set.length} chunks)...`);
-    const items_data_promises = chunked_channels_set.map((chunks, idx) => (
-        session.get("https://www.googleapis.com/youtube/v3/channels", {
-            params: {
-                part: "snippet,statistics",
-                id: _.join(_.map(chunks, "id"), ","),
-                maxResults: 50,
-                key: apiKeys.get()
-            },
-            responseType: "json"
-        })
-        .then((result) => {
-            let yt_result = result.data;
-            let items = yt_result["items"].map((res: any) => {
-                // @ts-ignore
-                let channel_data = _.find(toBeParsed, {"id": res.id});
-                // @ts-ignore
-                res["enName"] = channel_data["name"];
-                // @ts-ignore
-                res["groupData"] = channel_data["group"];
-                return res;
+    logger.info(
+        `youtubeChannelDataset(${group}) checking channels with total of ${toBeParsed.length} channels (${chunked_channels_set.length} chunks)...`
+    );
+    const items_data_promises = chunked_channels_set.map((chunks, idx) =>
+        session
+            .get("https://www.googleapis.com/youtube/v3/channels", {
+                params: {
+                    part: "snippet,statistics",
+                    id: _.join(_.map(chunks, "id"), ","),
+                    maxResults: 50,
+                    key: apiKeys.get(),
+                },
+                responseType: "json",
             })
-            return items;
-        }).catch((err) => {
-            logger.error(`youtubeChannelDataset(${group}) failed to fetch info for chunk ${idx}, error: ${err.toString()}`);
-            return [];
-        })
-    ))
+            .then((result) => {
+                let yt_result = result.data;
+                let items = yt_result["items"].map((res: any) => {
+                    // @ts-ignore
+                    let channel_data = _.find(toBeParsed, { id: res.id });
+                    // @ts-ignore
+                    res["enName"] = channel_data["name"];
+                    // @ts-ignore
+                    res["groupData"] = channel_data["group"];
+                    return res;
+                });
+                return items;
+            })
+            .catch((err) => {
+                logger.error(
+                    `youtubeChannelDataset(${group}) failed to fetch info for chunk ${idx}, error: ${err.toString()}`
+                );
+                return [];
+            })
+    );
 
     let items_data: any[] = await Promise.all(items_data_promises).catch((err) => {
-        logger.error(`youtubeChannelDataset() failed to fetch from API, error: ${err.toString()}`)
+        logger.error(`youtubeChannelDataset() failed to fetch from API, error: ${err.toString()}`);
         return [];
     });
     if (items_data.length < 1) {
@@ -107,9 +111,10 @@ export async function youtubeChannelDataset(dataset: VTuberModel[], apiKeys: YTR
 
         let title = snippets["title"];
         let desc = snippets["description"];
-        let pubAt = snippets["publishedAt"]
+        let pubAt = snippets["publishedAt"];
         let group = res_item["groupData"];
         let enName = res_item["enName"];
+        let customUrl = snippets["customUrl"] || null;
 
         let thumbs = getBestThumbnail(snippets["thumbnails"], "");
         let subsCount = 0,
@@ -129,6 +134,7 @@ export async function youtubeChannelDataset(dataset: VTuberModel[], apiKeys: YTR
         // @ts-ignore
         let finalData: ChannelsProps = {
             id: ch_id,
+            yt_custom_id: customUrl,
             name: title,
             en_name: enName,
             description: desc,
@@ -140,7 +146,7 @@ export async function youtubeChannelDataset(dataset: VTuberModel[], apiKeys: YTR
             group: group,
             platform: "youtube",
             is_retired: false,
-        }
+        };
         return finalData;
     });
 
@@ -155,11 +161,11 @@ export async function youtubeChannelDataset(dataset: VTuberModel[], apiKeys: YTR
                     subscriberCount: res["subscriberCount"],
                     viewCount: res["viewCount"],
                     videoCount: res["videoCount"],
-                }
+                },
             ],
             group: res["group"],
-            platform: "youtube"
-        }
+            platform: "youtube",
+        };
     });
 
     if (to_be_committed.length > 0) {
@@ -171,7 +177,9 @@ export async function youtubeChannelDataset(dataset: VTuberModel[], apiKeys: YTR
     if (historyDatas.length > 0) {
         logger.info(`youtubeChannelDataset(${group}) committing new history data...`);
         await ChannelStatsHistData.insertMany(historyDatas).catch((err) => {
-            logger.error(`youtubeChannelDataset(${group}) failed to insert new history data, ${err.toString()}`);
-        })
+            logger.error(
+                `youtubeChannelDataset(${group}) failed to insert new history data, ${err.toString()}`
+            );
+        });
     }
 }
