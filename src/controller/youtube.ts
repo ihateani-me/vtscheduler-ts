@@ -116,7 +116,7 @@ function checkForErrorsAndRotate(apiReponses: any, apiKeys: YTRotatingAPIKey) {
         )} `
     );
     let errorReason = _.get(firstErrors, "reason", "unknown");
-    if (errorReason === "rateLimitExceeded") {
+    if (errorReason === "rateLimitExceeded" || errorReason === "quotaExceeded") {
         apiKeys.forceRotate();
     }
     return true;
