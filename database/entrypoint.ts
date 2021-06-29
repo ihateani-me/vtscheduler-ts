@@ -1,2 +1,2 @@
-import {menuController} from "./index";
+import { menuController } from "./index";
 menuController();
