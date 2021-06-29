@@ -881,7 +881,7 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
             idData["is_missing"] = true;
             idData["status"] = "past";
             idData["timedata"]["endTime"] = targetEndTime;
-            if (idData["timedata"]["startTime"]) {
+            if (idData["timedata"]["startTime"] && !idData["is_premiere"]) {
                 idData["timedata"]["duration"] = targetEndTime - idData["timedata"]["startTime"];
             }
             if (idData["timedata"]["startTime"] && idData["timedata"]["scheduledStartTime"]) {
