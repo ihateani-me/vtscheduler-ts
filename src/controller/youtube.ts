@@ -98,14 +98,14 @@ function getBestThumbnail(thumbnails: any, video_id: string): string {
     return `https://i.ytimg.com/vi/${video_id}/maxresdefault.jpg`;
 }
 
-function checkForErrorsAndRotate(apiReponses: any, apiKeys: YTRotatingAPIKey) {
+function checkForErrorsAndRotate(apiReponses: any, apiKeys: YTRotatingAPIKey): [boolean, boolean] {
     let errors = _.get(apiReponses, "error", undefined);
     if (typeof errors === "undefined") {
-        return false;
+        return [false, false];
     }
     let errorsData: any[] = _.get(errors, "errors", []);
     if (errorsData.length < 1) {
-        return false;
+        return [false, false];
     }
     let firstErrors = errorsData[0];
     logger.error(
@@ -116,10 +116,12 @@ function checkForErrorsAndRotate(apiReponses: any, apiKeys: YTRotatingAPIKey) {
         )} `
     );
     let errorReason = _.get(firstErrors, "reason", "unknown");
+    let quotaExhausted = false;
     if (errorReason === "rateLimitExceeded" || errorReason === "quotaExceeded") {
         apiKeys.forceRotate();
+        quotaExhausted = true;
     }
-    return true;
+    return [true, quotaExhausted];
 }
 
 function iterateMatchAllSelect(
@@ -258,6 +260,8 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: F
         return;
     }
 
+    // Check if quota ran out before updating!
+    let is_quota_ran_out = false;
     logger.info(`youtubeVideoFeeds() Fetching videos`);
     // @ts-ignore
     const chunkedVideoFetch = _.chunk(_.flattenDeep(video_ids_set), 40);
@@ -274,7 +278,8 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: F
             })
             .then((result) => {
                 let yt_result = result.data;
-                let is_error = checkForErrorsAndRotate(yt_result, apiKeys);
+                let [is_error, quotaExhausted] = checkForErrorsAndRotate(yt_result, apiKeys);
+                is_quota_ran_out = quotaExhausted;
                 if (is_error) {
                     // problem occured, sent empty array like my mind.
                     return [];
@@ -289,7 +294,8 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: F
             })
             .catch((err) => {
                 if (err.response) {
-                    let is_error = checkForErrorsAndRotate(err.response.data, apiKeys);
+                    let [is_error, quotaExhausted] = checkForErrorsAndRotate(err.response.data, apiKeys);
+                    is_quota_ran_out = quotaExhausted;
                     if (is_error) {
                         return [];
                     }
@@ -547,6 +553,8 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
     // Some got caught in this
     video_sets = video_sets.filter((e) => e.platform === "youtube");
 
+    // Check if quota ran out before updating!
+    let is_quota_ran_out = false;
     const chunked_video_set = _.chunk(video_sets, 40);
     logger.info(
         `youtubeLiveHeartbeat() checking heartbeat on ${video_sets.length} videos (${chunked_video_set.length} chunks)...`
@@ -564,7 +572,8 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
             })
             .then((result) => {
                 let yt_result = result.data;
-                let is_error = checkForErrorsAndRotate(yt_result, apiKeys);
+                let [is_error, quotaExhausted] = checkForErrorsAndRotate(yt_result, apiKeys);
+                is_quota_ran_out = quotaExhausted;
                 if (is_error) {
                     // problem occured, sent empty array like my mind.
                     return [];
@@ -573,7 +582,8 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
             })
             .catch((err) => {
                 if (err.response) {
-                    let is_error = checkForErrorsAndRotate(err.response.data, apiKeys);
+                    let [is_error, quotaExhausted] = checkForErrorsAndRotate(err.response.data, apiKeys);
+                    is_quota_ran_out = quotaExhausted;
                     if (is_error) {
                         return [];
                     }
@@ -863,7 +873,9 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
     let expectedResults = _.map(video_sets, "id");
     let actualResults = _.map(to_be_committed, "id");
     let differenceResults = _.difference(expectedResults, actualResults);
-    if (differenceResults.length > 0) {
+    // Check if there's difference and make sure only run if the quota is fine and not running out.
+    // So it doesn't fuck currently running stream.
+    if (differenceResults.length > 0 && !is_quota_ran_out) {
         logger.info(
             `youtubeLiveHeartbeat() missing ${differenceResults.length} videos from API results, marking it as missing and past`
         );
