@@ -1,0 +1,19 @@
+{
+    "$schema": "https://ihateani.me/vt-schemas.json",
+    "id": "anagataid",
+    "name": "Anagata ID",
+    "vliver": [
+        {
+            "name": "Dedlyne Avaritia",
+            "youtube": "UC43w3TlDjloGlOYiyanNbUQ"
+        },
+        {
+            "name": "Stellaren Andromeda",
+            "youtube": "UCeYakVIxFXbWqRDZob8Kmjw"
+        },
+        {
+            "name": "Reyn Leorion",
+            "youtube": "UCU319BH6qK1v9IVhEVulOlQ"
+        }
+    ]
+}
