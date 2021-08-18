@@ -68,12 +68,12 @@ export const VideosData = typedModel("VideosData", VideosSchema, undefined, unde
         }
         if (excluded["channel_ids"].length > 0) {
             requestConfig.push({
-                id: { $nin: excluded["channel_ids"] },
+                channel_id: { $nin: excluded["channel_ids"] },
             });
         }
         if (included["channel_ids"].length > 0) {
             requestConfig.push({
-                id: { $in: included["channel_ids"] },
+                channel_id: { $in: included["channel_ids"] },
             });
         }
         if (typeof extras !== "undefined" && extras.length > 0) {
