@@ -202,15 +202,36 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: F
         .mapValues((o) => _.map(o, (m) => m.id))
         .value();
     logger.info("youtubeVideoFeeds() fetching channels data...");
-    let fullChannels: ChannelsProps[] = await ChannelsData.filteredFind(
-        filtersRun["exclude"],
-        filtersRun["include"],
-        { id: 1, yt_custom_id: 1, group: 1, name: 1, platform: 1 },
-        [{ is_retired: { $eq: false } }]
-    );
+    let fullChannels: ChannelsProps[] = await ChannelsData.find({
+        platform: { $in: ["youtube", "twitch"] },
+        is_retired: {$eq: false},
+    }, {
+        id: 1,
+        yt_custom_id: 1,
+        name: 1,
+        platform: 1,
+        group: 1,
+    })
     let channels = fullChannels.filter((e) => e.platform === "youtube");
+    logger.info(`Got ${channels.length} originally, filtering with exclude/include...`);
+    const includedFilter = filtersRun.include;
+    const excludedFilter = filtersRun.exclude;
+    if (includedFilter.groups.length > 0) {
+        channels = channels.filter((e) => includedFilter.groups.includes(e.group));
+    }
+    if (includedFilter.channel_ids.length > 0) {
+        channels = channels.filter((e) => includedFilter.channel_ids.includes(e.id));
+    }
+    logger.info(`After filtering, got ${channels.length} channels.`);
+    if (excludedFilter.groups.length > 0) {
+        channels = channels.filter((e) => !excludedFilter.groups.includes(e.group));
+    }
+    if (excludedFilter.channel_ids.length > 0) {
+        channels = channels.filter((e) => !excludedFilter.channel_ids.includes(e.id));
+    }
+    logger.info(`After filtering again, got ${channels.length} channels.`);
 
-    logger.info("youtubeVideoFeeds() creating job task for xml fetch...");
+    logger.info(`youtubeVideoFeeds() creating ${channels.length} job task for xml fetch...`);
     const xmls_to_fetch = channels.map((channel) =>
         axios
             .get("https://www.youtube.com/feeds/videos.xml", {
@@ -544,12 +565,15 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
         return;
     }
     logger.info("youtubeLiveHeartbeat() fetching channels data...");
-    let fullChannels: ChannelsProps[] = await ChannelsData.filteredFind(
-        filtersRun["exclude"],
-        filtersRun["include"],
-        { id: 1, yt_custom_id: 1, name: 1, platform: 1 },
-        [{ is_retired: { $eq: false } }]
-    );
+    let fullChannels: ChannelsProps[] = await ChannelsData.find({
+        platform: { $in: ["youtube", "twitch"] },
+        is_retired: {$eq: false},
+    }, {
+        id: 1,
+        yt_custom_id: 1,
+        name: 1,
+        platform: 1,
+    })
     // Some got caught in this
     video_sets = video_sets.filter((e) => e.platform === "youtube");
 
