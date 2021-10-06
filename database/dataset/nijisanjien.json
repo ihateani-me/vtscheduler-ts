@@ -5,7 +5,8 @@
     "vliver": [
         {
             "name": "NIJISANJI English Official",
-            "youtube": "UC-JSeFfovhNsEhftt1WHMvg"
+            "youtube": "UC-JSeFfovhNsEhftt1WHMvg",
+            "twitch": "nijisanji_en"
         },
         {
             "name": "Finana Ryugu",
@@ -24,15 +25,18 @@
         },
         {
             "name": "Selen Tatsuki",
-            "youtube": "UCV1xUwfM2v2oBtT3JNvic3w"
+            "youtube": "UCV1xUwfM2v2oBtT3JNvic3w",
+            "twitch": "selentatsuki"
         },
         {
             "name": "Rosemi Lovelock",
-            "youtube": "UC4WvIIAo89_AzGUh1AZ6Dkg"
+            "youtube": "UC4WvIIAo89_AzGUh1AZ6Dkg",
+            "twitch": "rosemilovelock"
         },
         {
             "name": "Petra Gurin",
-            "youtube": "UCgA2jKRkqpY_8eysPUs8sjw"
+            "youtube": "UCgA2jKRkqpY_8eysPUs8sjw",
+            "twitch": "petragurin"
         },
         {
             "name": "Enna Alouette",
