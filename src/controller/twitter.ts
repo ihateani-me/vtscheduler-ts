@@ -15,7 +15,22 @@ import {
     ViewersData,
     HistoryMap,
 } from "../models";
-import { FileTransportOptions } from "winston/lib/winston/transports";
+
+function bestProfilePicture(url: string): string {
+    if (isNone(url)) {
+        return "";
+    }
+    // remove anything after the picture ID.
+    // format: https://pbs.twimg.com/profile_images/xxxxxxxxxxxxx/pictureId_whatever.jpg
+    const splitIdx = url.lastIndexOf("_");
+    if (splitIdx < 40) {
+        return url;
+    }
+    const extIdx = url.lastIndexOf(".");
+    const firstPart = url.substring(0, splitIdx);
+    const extension = url.substring(extIdx);
+    return firstPart + extension;
+}
 
 export async function twitterSpacesHeartbeat(twtApi: TwitterAPI, filtersRun: FiltersConfig) {
     logger.info("twitterSpacesHeartbeat() fetching channels and videos data...");
@@ -433,7 +448,7 @@ export async function twitterChannelStats(twtAPI: TwitterAPI, filtersRun: Filter
             id: result.username,
             user_id: result.id,
             description: result.description,
-            thumbnail: result.profile_image_url,
+            thumbnail: bestProfilePicture(result.profile_image_url),
             followerCount: followersData,
         }
         updateData.push(mappedUpdate);
