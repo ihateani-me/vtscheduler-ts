@@ -6,6 +6,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
 import { chunk, concat, flattenDeep, get } from "lodash";
 import { DateTime } from "luxon";
+import { URL } from "url";
 
 import { logger } from "./logger";
 
@@ -130,6 +131,7 @@ export class TwitterAPI {
     }
 
     getBucket(id: string) {
+        logger.info(`TwitterAPI.getBucket(): Fetching bucket ${id}`);
         let bucket = get(this.bucket, id, null);
         if (isNone(bucket)) {
             bucket = new TokenBucket(id, -1, -1);
@@ -139,6 +141,7 @@ export class TwitterAPI {
     }
 
     updateBucket(id: string, reset: number, remaining: number) {
+        logger.info(`TwitterAPI.updateBucket(): Updating bucket ${id} (${remaining} - ${reset})`);
         let bucket = get(this.bucket, id, null);
         if (isNone(bucket)) {
             bucket = new TokenBucket(id, -1, -1);
@@ -150,7 +153,9 @@ export class TwitterAPI {
     }
 
     private async handleRateLimitRequest(config: AxiosRequestConfig): Promise<AxiosRequestConfig> {
-        const bucket = this.getBucket(hashRoute(config.url ?? this.BASE_v2));
+        const url = config.url ?? this.BASE_v2;
+        const reparsedURL = new URL(url);
+        const bucket = this.getBucket(hashRoute(reparsedURL.pathname));
         if (bucket.nextReset < 0) {
             return config;
         }
@@ -161,9 +166,11 @@ export class TwitterAPI {
     private handleRateLimitResponse(
         response: AxiosResponse<any>
     ): AxiosResponse<any> | Promise<AxiosResponse<any>> {
+        const url = response?.config.url ?? this.BASE_v2;
+        const reparsedURL = new URL(url)
         const nextReset = parseInt(get(response.headers, "x-rate-limit-reset", -1));
         const remainingBucket = parseInt(get(response.headers, "x-rate-limit-remaining", -1));
-        this.updateBucket(hashRoute(response.config.url ?? this.BASE_v2), nextReset, remainingBucket);
+        this.updateBucket(hashRoute(reparsedURL), nextReset, remainingBucket);
         return response;
     }
 
@@ -280,7 +287,7 @@ export class TwitterAPI {
             this.getReq<RawUserData[]>(
                 this.BASE_v2 + "users/by",
                 concat(
-                    [`ids=${usernameSets.join(",")}`],
+                    [`usernames=${usernameSets.join(",")}`],
                     ["user.fields=created_at,description,public_metrics,profile_image_url"]
                 )
             )
