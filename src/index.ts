@@ -21,7 +21,7 @@ const filtersConfig = config["filters"];
 logger.info("Connecting to database...");
 mongoose.connect(`${mongouri}/${config.mongodb.dbname}`, {useNewUrlParser: true, useUnifiedTopology: true, useFindAndModify: false});
 
-if (!config.workers.youtube && !config.workers.bilibili && !config.workers.twitcasting && !config.workers.twitch) {
+if (!config.workers.youtube && !config.workers.bilibili && !config.workers.twitcasting && !config.workers.twitch && !config.workers.twitter) {
     logger.info("There's no worker enabled, shutting down");
     process.exit(0);
 }
@@ -135,6 +135,7 @@ function emptyData(t: any) {
             totalWorkers++;
         }
     }
+
     if (config.workers.twitter && !emptyData(config.twitter.token)) {
         logger.info("scheduler() Adding jobs for twitter part...");
         const twtAPI = new TwitterAPI(config.twitter.token)
