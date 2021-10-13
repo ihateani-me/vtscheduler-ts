@@ -1,6 +1,6 @@
 import _ from "lodash";
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
-import { DateTime, Interval } from "luxon";
+import { DateTime } from "luxon";
 
 import { logger } from "./logger";
 import { isNone } from "./swissknife";
@@ -281,7 +281,7 @@ export class TwitchHelix {
         let response;
         try {
             response = await this.getReq(this.BASE_URL + "schedule", params, headers);
-        } catch (e) {
+        } catch (e: any) {
             if (e.response) {
                 const respAxios = e.response as AxiosResponse;
                 if (respAxios.status) {
@@ -433,7 +433,7 @@ export class TwitchGQL {
                 variables: variables,
                 operationName: "StreamSchedule",
             });
-        } catch (err) {
+        } catch (err: any) {
             logger.error(
                 `twitchGQL.getSchedules() failed to fetch schedule for ${loginName}, ${err.toString()}`
             );

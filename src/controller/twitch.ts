@@ -160,7 +160,7 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, filtersRun: FiltersC
             };
             try {
                 await ViewersData.updateOne({ id: { $eq: currentViewersData["id"] } }, viewUpdData);
-            } catch (e) {
+            } catch (e: any) {
                 logger.error(
                     `ttvLiveHeartbeat() Failed to update viewers data for ID ${result["id"]}, ${e.toString()}`
                 );
@@ -253,7 +253,7 @@ export async function ttvLiveHeartbeat(ttvAPI: TwitchHelix, filtersRun: FiltersC
             logger.info(`ttvLiveHeartbeat() removing ${viewersIdsToDelete.length} viewers data...`);
             try {
                 await ViewersData.deleteMany({ id: { $in: viewersIdsToDelete } });
-            } catch (e) {
+            } catch (e: any) {
                 logger.error(`ttvLiveHeartbeat() failed to remove viewers data, ${e.toString()}`);
             }
         }
@@ -504,6 +504,7 @@ export async function ttvChannelsStats(ttvAPI: TwitchHelix, filtersRun: FiltersC
             ChannelStatsHistData.updateOne(
                 { id: { $eq: new_upd.id }, platform: { $eq: "twitch" } },
                 { $addToSet: { history: new_upd["history"] } },
+                // @ts-ignore
                 (err) => {
                     if (err) {
                         logger.error(

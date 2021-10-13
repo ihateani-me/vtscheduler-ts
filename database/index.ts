@@ -11,12 +11,14 @@ import {
     mildomChannelsDataset,
     ttvChannelDataset,
     twcastChannelsDataset,
+    twitterChannelDataset,
     youtubeChannelDataset,
 } from "./controller";
 
 import { logger } from "../src/utils/logger";
 import { YTRotatingAPIKey } from "../src/utils/ytkey_rotator";
 import { TwitchHelix } from "../src/utils/twitchapi";
+import { TwitterAPI } from "../src/utils/twspaces";
 import { MildomAPI } from "../src/utils/mildomapi";
 
 import config from "../src/config.json";
@@ -82,7 +84,7 @@ const delayEnd = () =>
         process.stdin.on("data", process.exit.bind(process, 0));
     }, 600);
 
-async function scrapeAndUpdate(filename: string, twitchAPI?: TwitchHelix, mildomAPI?: MildomAPI) {
+async function scrapeAndUpdate(filename: string, twitchAPI?: TwitchHelix, mildomAPI?: MildomAPI, twtAPI?: TwitterAPI) {
     logger.info(`scrapeAndUpdate() processing group: ${filename}`);
     let datasetRead: DatasetModel = JSON.parse(readFileSync(join(__dirname, "dataset", filename), "utf-8"));
     if (!_.has(datasetRead, "id")) {
@@ -119,6 +121,12 @@ async function scrapeAndUpdate(filename: string, twitchAPI?: TwitchHelix, mildom
             d["id"] = datasetRead["id"];
             return d;
         });
+    let twitterData: VTuberModel[] = datasetRead.vliver
+        .filter((f) => _.has(f, "twitter"))
+        .map((d) => {
+            d["id"] = datasetRead["id"];
+            return d;
+        });
 
     if (config.workers.youtube && youtubeData.length > 0) {
         // 25 secs
@@ -147,6 +155,11 @@ async function scrapeAndUpdate(filename: string, twitchAPI?: TwitchHelix, mildom
         logger.info(`scrapeAndUpdate() mildom: ${mildomData.length}`);
         await mildomChannelsDataset(mildomAPI, mildomData);
     }
+    if (config.workers.twitter && twitterData.length > 0 && typeof twtAPI !== "undefined") {
+        logger.info("scrapeAndUpdate() running twitter scraper...");
+        logger.info(`scrapeAndUpdate() twitter: ${twitterData.length}`);
+        await twitterChannelDataset(twitterData, twtAPI);
+    }
 }
 
 async function propagateAndUpdate() {
@@ -155,16 +168,21 @@ async function propagateAndUpdate() {
     }
     let twitchAPI: TwitchHelix;
     let mildomAPI = new MildomAPI();
+    let twitterAPI: TwitterAPI | undefined = undefined;
     if (config.twitch.client_id && config.twitch.client_secret && config.workers.twitch) {
         logger.info("propagateAndUpdate() initializing twitch API");
         twitchAPI = new TwitchHelix(config.twitch.client_id, config.twitch.client_secret);
         await twitchAPI.authorizeClient();
     }
+    if (config.twitter.token && config.workers.twitter) {
+        logger.info("propagateAndUpdate() initializing twitter API");
+        twitterAPI = new TwitterAPI(config.twitter.token);
+    }
 
     let allDatasets = readdirSync(join(__dirname, "dataset"))
         .filter((f) => f.endsWith(".json"))
-        .flatMap(async (group): Promise<void> => await scrapeAndUpdate(group, twitchAPI, mildomAPI));
-    await Promise.all(allDatasets).catch((err) => {
+        .flatMap(async (group): Promise<void> => await scrapeAndUpdate(group, twitchAPI, mildomAPI, twitterAPI));
+    await Promise.all(allDatasets).catch((err: any) => {
         logger.error(`propagateAndUpdate() failed to propagate, ${err.toString()}`);
         logger.error(err);
     });

@@ -70,6 +70,12 @@
                         "type": "string",
                         "title": "The Mildom User ID of the VTuber (if exist)",
                         "description": "For example, if the channel URL is https://www.mildom.com/profile/10957333, the User ID is 10957333"
+                    },
+                    "twitter": {
+                        "$id": "#/properties/vliver/items/properties/twitter",
+                        "type": "string",
+                        "title": "The Twitter username of the VTuber (if exist)",
+                        "description": "For example, if the page URL is https://twitter.com/tokoyamitowa, the username is tokoyamitowa"
                     }
                 }
             }

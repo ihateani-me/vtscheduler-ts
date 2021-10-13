@@ -11,12 +11,16 @@
         "client_id": null,
         "client_secret": null
     },
+    "twitter": {
+        "token": null
+    },
     "workers": {
         "youtube": true,
         "bilibili": false,
         "twitch": false,
         "twitcasting": false,
-        "mildom": false
+        "mildom": false,
+        "twitter": false
     },
     "intervals": {
         "bilibili": {
@@ -42,6 +46,11 @@
         "mildom": {
             "channels": "*/60 */2 * * *",
             "live": "*/1 * * * *"
+        },
+        "twitter": {
+            "channels": "*/60 */2 * * *",
+            "live": "*/1 * * * *",
+            "feeds": "*/3 * * * *"
         }
     },
     "filters": {

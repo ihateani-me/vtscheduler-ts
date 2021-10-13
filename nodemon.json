@@ -6,6 +6,6 @@
     "ignore": [
         "**/*.test.ts"
     ],
-    "exec": "ts-node ./src/server.ts",
+    "exec": "ts-node --transpile-only ./src/index.ts",
     "ext": "js ts json"
 }

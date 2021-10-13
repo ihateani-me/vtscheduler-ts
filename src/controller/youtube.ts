@@ -36,7 +36,7 @@ interface XMLFetchedData {
 
 interface MentionedData {
     id: string;
-    platform: "twitch" | "youtube" | "bilibili" | "twitcasting" | "mildom";
+    platform: "twitch" | "youtube" | "bilibili" | "twitcasting" | "mildom" | "twitter";
     isVanity?: boolean;
 }
 
@@ -801,7 +801,7 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
                 };
                 try {
                     await ViewersData.updateOne({ id: { $eq: currentViewersData["id"] } }, viewUpdData);
-                } catch (e) {
+                } catch (e: any) {
                     logger.error(
                         `youtubeLiveHeartbeat() Failed to update viewers data for ID ${video_id}, ${e.toString()}`
                     );
@@ -954,7 +954,7 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
             logger.info(`youtubeLiveHeartbeat() removing ${viewersIdsToDelete.length} viewers data...`);
             try {
                 await ViewersData.deleteMany({ id: { $in: viewersIdsToDelete } });
-            } catch (e) {
+            } catch (e: any) {
                 logger.error(`youtubeLiveHeartbeat() failed to remove viewers data, ${e.toString()}`);
             }
         }
@@ -1151,6 +1151,7 @@ export async function youtubeChannelsStats(apiKeys: YTRotatingAPIKey, filtersRun
             ChannelStatsHistData.update(
                 { id: { $eq: new_upd.id }, platform: { $eq: "youtube" } },
                 { $addToSet: { history: new_upd["history"] } },
+                // @ts-ignore
                 (err) => {
                     if (err) {
                         logger.error(
@@ -1364,7 +1365,7 @@ export async function youtubeVideoMissingCheck(apiKeys: YTRotatingAPIKey, filter
                 };
                 try {
                     await ViewersData.updateOne({ id: { $eq: currentViewersData["id"] } }, viewUpdData);
-                } catch (e) {
+                } catch (e: any) {
                     logger.error(
                         `youtubeVideoMissingCheck() Failed to update viewers data for ID ${video_id}, ${e.toString()}`
                     );

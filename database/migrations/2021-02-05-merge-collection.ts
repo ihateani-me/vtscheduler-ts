@@ -275,7 +275,8 @@ export async function migrate_MergeCollection_20200205() {
     finalizedVideos = _.concat(finalizedVideos, mildomVideos);
 
     logger.info("migrate_MergeCollection_20200205() committing data to new VideosData collection...");
-    await VideosData.insertMany(finalizedVideos, (err) => {
+    // @ts-ignore
+    await VideosData.insertMany(finalizedVideos, (err: any) => {
         if (err) {
             logger.error(`migrate_MergeCollection_20200205() Failed to commit data to VideosData, ${err.toString()}`);
             console.error(err);
@@ -317,7 +318,8 @@ export async function migrate_MergeCollection_20200205() {
     finalizedChannels = _.map(finalizedChannels, (o) => _.omit(o, "history"));
 
     logger.info("migrate_MergeCollection_20200205() committing data to new ChannelsData collection...");
-    await ChannelsData.insertMany(finalizedChannels, (err) => {
+    // @ts-ignore
+    await ChannelsData.insertMany(finalizedChannels, (err: any) => {
         if (err) {
             logger.error(`migrate_MergeCollection_20200205() Failed to commit data to ChannelsData, ${err.toString()}`);
             console.error(err);
@@ -325,7 +327,8 @@ export async function migrate_MergeCollection_20200205() {
         return;
     });
     logger.info("migrate_MergeCollection_20200205() committing data to new ChannelStatsHistData collection...");
-    await ChannelStatsHistData.insertMany(finalizedHistoryChannels, (err) => {
+    // @ts-ignore
+    await ChannelStatsHistData.insertMany(finalizedHistoryChannels, (err: any) => {
         if (err) {
             logger.error(`migrate_MergeCollection_20200205() Failed to commit data to ChannelStatsHistData, ${err.toString()}`);
             console.error(err);

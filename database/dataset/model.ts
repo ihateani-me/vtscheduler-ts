@@ -12,4 +12,5 @@ export interface VTuberModel {
     twitch?: string
     twitcasting?: string
     mildom?: string
+    twitter?: string
 }

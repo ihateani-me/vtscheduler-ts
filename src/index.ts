@@ -4,6 +4,7 @@ import { scheduleJob } from "node-schedule";
 import { logger } from "./utils/logger";
 import { isNone } from "./utils/swissknife";
 import { TwitchHelix } from "./utils/twitchapi";
+import { TwitterAPI } from "./utils/twspaces";
 import { YTRotatingAPIKey } from "./utils/ytkey_rotator";
 
 import * as Tasks from "./tasks";
@@ -20,7 +21,7 @@ const filtersConfig = config["filters"];
 logger.info("Connecting to database...");
 mongoose.connect(`${mongouri}/${config.mongodb.dbname}`, {useNewUrlParser: true, useUnifiedTopology: true, useFindAndModify: false});
 
-if (!config.workers.youtube && !config.workers.bilibili && !config.workers.twitcasting && !config.workers.twitch) {
+if (!config.workers.youtube && !config.workers.bilibili && !config.workers.twitcasting && !config.workers.twitch && !config.workers.twitter) {
     logger.info("There's no worker enabled, shutting down");
     process.exit(0);
 }
@@ -134,5 +135,24 @@ function emptyData(t: any) {
             totalWorkers++;
         }
     }
+
+    if (config.workers.twitter && !emptyData(config?.twitter?.token)) {
+        logger.info("scheduler() Adding jobs for twitter part...");
+        const twtAPI = new TwitterAPI(config.twitter.token)
+        const TwitterTasks = new Tasks.TwitterTasks(twtAPI, filtersConfig);
+        if (typeof config.intervals.twitter.live === "string") {
+            scheduleJob({rule: config.intervals.twitter.live, tz: "Asia/Tokyo"}, async () => TwitterTasks.handleTwitterLive());
+            totalWorkers++;
+        }
+        if (typeof config.intervals.twitter.feeds === "string") {
+            scheduleJob({rule: config.intervals.twitter.feeds, tz: "Asia/Tokyo"}, async () => TwitterTasks.handleTwitchFeeds());
+            totalWorkers++;
+        }
+        if (typeof config.intervals.twitter.channels === "string") {
+            scheduleJob({rule: config.intervals.twitter.channels, tz: "Asia/Tokyo"}, async () => TwitterTasks.handleTwitterChannels());
+            totalWorkers++;
+        }
+    }
+
     logger.info(`scheduler() running ${totalWorkers} workers...`);
 })();

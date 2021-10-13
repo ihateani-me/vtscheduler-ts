@@ -30,7 +30,7 @@ export class BilibiliTasks {
         logger.info("handleB2Feeds() executing job...");
         try {
             await bilibiliVideoFeeds(this.filtersUsage);
-        } catch (e) {
+        } catch (e: any) {
             this.videosLock.unlock();
             logger.error(`handleB2Feeds() an error occured while processing the task: ${e.toString()}`);
             console.error(e);
@@ -47,7 +47,7 @@ export class BilibiliTasks {
         logger.info("handleB2Feeds() executing job...");
         try {
             await bilibiliLiveHeartbeat(this.filtersUsage);
-        } catch (e) {
+        } catch (e: any) {
             this.liveLock.unlock();
             logger.error(`handleB2Feeds() an error occured while processing the task: ${e.toString()}`);
             console.error(e);
@@ -64,7 +64,7 @@ export class BilibiliTasks {
         logger.info("handleB2Channels() executing job...");
         try {
             await bilibiliChannelsStats(this.filtersUsage);
-        } catch (e) {
+        } catch (e: any) {
             this.channelLock.unlock();
             logger.error(`handleB2Channels() an error occured while processing the task: ${e.toString()}`);
             console.error(e);

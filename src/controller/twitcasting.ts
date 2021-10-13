@@ -186,7 +186,7 @@ export async function twcastLiveHeartbeat(filtersRun: FiltersConfig) {
             }
             try {
                 await ViewersData.updateOne({"id": {"$eq": currentViewersData["id"]}}, viewUpdData);
-            } catch (e) {
+            } catch (e: any) {
                 logger.error(`twcastLiveHeartbeat() Failed to update viewers data for ID ${result["id"]}, ${e.toString()}`);
             }
         } else {
@@ -258,7 +258,7 @@ export async function twcastLiveHeartbeat(filtersRun: FiltersConfig) {
             logger.info(`twcastLiveHeartbeat() removing ${viewersIdsToDelete.length} viewers data...`);
             try {
                 await ViewersData.deleteMany({"id": {"$in": viewersIdsToDelete}});
-            } catch (e) {
+            } catch (e: any) {
                 logger.error(`twcastLiveHeartbeat() failed to remove viewers data, ${e.toString()}`);
             }
             
@@ -414,7 +414,8 @@ export async function twcastChannelsStats(filtersRun: FiltersConfig) {
     // Update history data
     logger.info("twcastChannelsStats() updating/inserting channel stats!");
     let histDBUpdate = historySet.filter((o) => o.mod === "update").map((new_upd) => {
-        ChannelStatsHistData.updateOne({"id": {"$eq": new_upd.id}, "platform": {"$eq": "twitcasting"}}, {"$addToSet": {history: new_upd["history"]}}, (err) => {
+        // @ts-ignore
+        ChannelStatsHistData.updateOne({"id": {"$eq": new_upd.id}, "platform": {"$eq": "twitcasting"}}, {"$addToSet": {history: new_upd["history"]}}, (err: any) => {
             if (err) {
                 logger.error(`twcastChannelsStats() failed to update history ${new_upd.id}, ${err.toString()}`);
             } else {

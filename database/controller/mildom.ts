@@ -36,7 +36,7 @@ export async function mildomChannelsDataset(mildomAPI: MildomAPI, dataset: VTube
                 res["group"] = chan.id;
                 return res;
             })
-            .catch((err) => {
+            .catch((err: any) => {
                 logger.error(
                     `mildomChannelDataset(${group}) error occured when fetching ${
                         chan.name
@@ -104,13 +104,13 @@ export async function mildomChannelsDataset(mildomAPI: MildomAPI, dataset: VTube
 
     if (insertData.length > 0) {
         logger.info(`mildomChannelDataset(${group}) committing new data...`);
-        await ChannelsData.insertMany(insertData).catch((err) => {
+        await ChannelsData.insertMany(insertData).catch((err: any) => {
             logger.error(`mildomChannelDataset(${group}) failed to insert new data, ${err.toString()}`);
         });
     }
     if (historyDatas.length > 0) {
         logger.info(`mildomChannelDataset(${group}) committing new history data...`);
-        await ChannelStatsHistData.insertMany(historyDatas).catch((err) => {
+        await ChannelStatsHistData.insertMany(historyDatas).catch((err: any) => {
             logger.error(
                 `mildomChannelDataset(${group}) failed to insert new history data, ${err.toString()}`
             );

@@ -44,7 +44,7 @@ export class MildomAPI {
                 responseType: "json"
             })
             results = rawResults.data;
-        } catch (e) {
+        } catch (e: any) {
             if (e.response) {
                 results = e.response.data;
             } else {
@@ -110,7 +110,7 @@ export class MildomAPI {
                     break;
                 }
                 currentPage++;
-            } catch (e) {
+            } catch (e: any) {
                 break;
             }
         }
@@ -135,7 +135,7 @@ export class MildomAPI {
                 responseType: "json"
             })
             results = rawResults.data;
-        } catch (e) {
+        } catch (e: any) {
             if (e.response) {
                 results = e.response.data;
             } else {
