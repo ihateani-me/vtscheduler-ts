@@ -37,6 +37,15 @@ export async function twitterSpacesHeartbeat(twtApi: TwitterAPI, filtersRun: Fil
     let video_sets = await VideosData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [
         { platform: { $eq: "twitter" } },
     ]);
+    const allActiveVideo = video_sets.filter((res) => res.status !== "past");
+    const allActiveVideoIds = allActiveVideo.map((video) => {
+        return video.id;
+    })
+    if (allActiveVideoIds.length < 1) {
+        logger.warn("twitterSpacesHeartbeat() no active videos, skipping run");
+        return;
+    }
+
     let channels = await ChannelsData.filteredFind(
         filtersRun["exclude"],
         filtersRun["include"],
@@ -47,11 +56,6 @@ export async function twitterSpacesHeartbeat(twtApi: TwitterAPI, filtersRun: Fil
         logger.warn("twitterSpacesHeartbeat() no registered channels");
         return;
     }
-
-    const allActiveVideo = video_sets.filter((res) => res.status !== "past");
-    const allActiveVideoIds = allActiveVideo.map((video) => {
-        return video.id;
-    })
 
     logger.info("twitterSpacesHeartbeat() fetching to API...");
     const twSpacesResult = await twtApi.fetchSpaces(allActiveVideoIds);
