@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: API Down?
+    url: https://github.com/ihateani-me/vtscheduler-ts/issues/4
+    about: The API is down or data not updating properly? Check here for latest information.
+  - name: API Related Error
+    url: https://github.com/ihateani-me/ihaapi-ts/issues/new/choose
+    about: If you got any problem with the ihateani.me API.
