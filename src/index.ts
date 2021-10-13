@@ -136,7 +136,7 @@ function emptyData(t: any) {
         }
     }
 
-    if (config.workers.twitter && !emptyData(config.twitter.token)) {
+    if (config.workers.twitter && !emptyData(config?.twitter?.token)) {
         logger.info("scheduler() Adding jobs for twitter part...");
         const twtAPI = new TwitterAPI(config.twitter.token)
         const TwitterTasks = new Tasks.TwitterTasks(twtAPI, filtersConfig);
