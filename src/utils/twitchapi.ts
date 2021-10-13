@@ -1,6 +1,6 @@
 import _ from "lodash";
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
-import { DateTime, Interval } from "luxon";
+import { DateTime } from "luxon";
 
 import { logger } from "./logger";
 import { isNone } from "./swissknife";
@@ -282,7 +282,7 @@ export class TwitchHelix {
         try {
             response = await this.getReq(this.BASE_URL + "schedule", params, headers);
         } catch (e) {
-            if (e.response) {
+            if (e instanceof Error) {
                 const respAxios = e.response as AxiosResponse;
                 if (respAxios.status) {
                     logger.warn(`twitchHelix.fetchChannelSchedules() No schedule found for ${user_id}`);

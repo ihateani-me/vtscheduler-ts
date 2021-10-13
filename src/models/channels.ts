@@ -7,7 +7,7 @@ const ChannelsSchema = createSchema({
     id: Type.string({ required: true }),
     yt_custom_id: Type.string(), // Youtube specific
     room_id: Type.string(), // Bilibili Specific
-    user_id: Type.string(), // Twitch Specific
+    user_id: Type.string(), // Twitch/Twitter Specific
     name: Type.string({ required: true }),
     en_name: Type.string(),
     description: Type.string(),
@@ -15,7 +15,7 @@ const ChannelsSchema = createSchema({
     subscriberCount: Type.number(),
     viewCount: Type.number(),
     videoCount: Type.number(),
-    followerCount: Type.number(), // TWCast/Mildom specific
+    followerCount: Type.number(), // TWCast/Mildom/Twitter specific
     level: Type.number(), // Mildom/TWCast specific
     thumbnail: Type.string({ required: true }),
     group: Type.string({ required: true }),

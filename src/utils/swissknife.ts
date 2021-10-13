@@ -1,4 +1,5 @@
 export type Nullable = null | undefined;
+export type NullableOr<T> = T | null;
 
 /**
  * Check if the variable is a null type or not.
