@@ -30,12 +30,12 @@ export async function ttvChannelDataset(dataset: VTuberModel[], ttvAPI: TwitchHe
         logger.info(
             `ttvChannelDataset(${group}) parsing and fetching followers and videos ${result["login"]}`
         );
-        let followersData = await ttvAPI.fetchChannelFollowers(result["id"]).catch((err) => {
+        let followersData = await ttvAPI.fetchChannelFollowers(result["id"]).catch((err: any) => {
             logger.error(`ttvChannelDataset(${group}) failed to fetch follower list for: ${result["login"]}`);
             return { total: 0 };
         });
         let videosData = (
-            await ttvAPI.fetchChannelVideos(result["id"]).catch((err) => {
+            await ttvAPI.fetchChannelVideos(result["id"]).catch((err: any) => {
                 logger.error(
                     `ttvChannelDataset(${group}) failed to fetch video list for: ${result["login"]}`
                 );
@@ -85,13 +85,13 @@ export async function ttvChannelDataset(dataset: VTuberModel[], ttvAPI: TwitchHe
 
     if (newChannels.length > 0) {
         logger.info(`ttvChannelDataset(${group}) committing new data...`);
-        await ChannelsData.insertMany(newChannels).catch((err) => {
+        await ChannelsData.insertMany(newChannels).catch((err: any) => {
             logger.error(`ttvChannelDataset(${group}) failed to insert new data, ${err.toString()}`);
         });
     }
     if (historyDatas.length > 0) {
         logger.info(`ttvChannelDataset(${group}) committing new history data...`);
-        await ChannelStatsHistData.insertMany(historyDatas).catch((err) => {
+        await ChannelStatsHistData.insertMany(historyDatas).catch((err: any) => {
             logger.error(`ttvChannelDataset(${group}) failed to insert new history data, ${err.toString()}`);
         });
     }

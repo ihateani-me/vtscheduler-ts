@@ -37,7 +37,7 @@ export class YouTubeTasks {
         logger.info("handleYTChannel() executing job...");
         try {
             await youtubeChannelsStats(this.ytKeys, this.filtersUsage);
-        } catch (e) {
+        } catch (e: any) {
             this.channelLock.unlock();
             logger.error(`handleYTChannel() an error occured while processing the task: ${e.toString()}`);
             console.error(e);
@@ -54,7 +54,7 @@ export class YouTubeTasks {
         logger.info("handleYTFeeds() executing job...");
         try {
             await youtubeVideoFeeds(this.ytKeys, this.filtersUsage);
-        } catch (e) {
+        } catch (e: any) {
             this.videosLock.unlock();
             logger.error(`handleYTFeeds() an error occured while processing the task: ${e.toString()}`);
             console.error(e);
@@ -71,7 +71,7 @@ export class YouTubeTasks {
         logger.info("handleYTMissing() executing job...");
         try {
             await youtubeVideoMissingCheck(this.ytKeys, this.filtersUsage);
-        } catch (e) {
+        } catch (e: any) {
             this.missingLock.unlock();
             logger.error(`handleYTMissing() an error occured while processing the task: ${e.toString()}`);
             console.error(e);
@@ -88,7 +88,7 @@ export class YouTubeTasks {
         logger.info("handleYTLive() executing job...");
         try {
             await youtubeLiveHeartbeat(this.ytKeys, this.filtersUsage);
-        } catch (e) {
+        } catch (e: any) {
             this.liveLock.unlock();
             logger.error(`handleYTLive() an error occured while processing the task: ${e.toString()}`);
             console.error(e);

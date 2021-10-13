@@ -28,7 +28,7 @@ export class TwitcastingTasks {
         logger.info("handleTWCastChannel() executing job...");
         try {
             await twcastChannelsStats(this.filtersUsage);
-        } catch (e) {
+        } catch (e: any) {
             this.channelLock.unlock();
             logger.error(`handleTWCastChannel() an error occured while processing the task: ${e.toString()}`);
             console.error(e);
@@ -45,7 +45,7 @@ export class TwitcastingTasks {
         logger.info("handleTWCastLive() executing job...");
         try {
             await twcastLiveHeartbeat(this.filtersUsage);
-        } catch (e) {
+        } catch (e: any) {
             this.liveLock.unlock();
             logger.error(`handleTWCastLive() an error occured while processing the task: ${e.toString()}`);
             console.error(e);

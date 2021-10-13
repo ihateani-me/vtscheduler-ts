@@ -182,7 +182,7 @@ async function propagateAndUpdate() {
     let allDatasets = readdirSync(join(__dirname, "dataset"))
         .filter((f) => f.endsWith(".json"))
         .flatMap(async (group): Promise<void> => await scrapeAndUpdate(group, twitchAPI, mildomAPI, twitterAPI));
-    await Promise.all(allDatasets).catch((err) => {
+    await Promise.all(allDatasets).catch((err: any) => {
         logger.error(`propagateAndUpdate() failed to propagate, ${err.toString()}`);
         logger.error(err);
     });

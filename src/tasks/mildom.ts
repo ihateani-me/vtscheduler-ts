@@ -33,7 +33,7 @@ export class MildomTasks {
         logger.info("handleMildomChannel() executing job...");
         try {
             await mildomChannelsStats(this.mildomAPI, this.filtersUsage);
-        } catch (e) {
+        } catch (e: any) {
             this.channelLock.unlock();
             logger.error(`handleMildomChannel() an error occured while processing the task: ${e.toString()}`);
             console.error(e);
@@ -50,7 +50,7 @@ export class MildomTasks {
         logger.info("handleMildomLive() executing job...");
         try {
             await mildomLiveHeartbeat(this.mildomAPI, this.filtersUsage);
-        } catch (e) {
+        } catch (e: any) {
             this.liveLock.unlock();
             logger.error(`handleMildomLive() an error occured while processing the task: ${e.toString()}`);
             console.error(e);

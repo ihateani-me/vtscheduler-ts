@@ -124,7 +124,7 @@ export async function mildomLiveHeartbeat(mildomAPI: MildomAPI, filtersRun: Filt
             }
             try {
                 await ViewersData.updateOne({"id": {"$eq": currentViewersData["id"]}}, viewUpdData);
-            } catch (e) {
+            } catch (e: any) {
                 logger.error(`mildomLiveHeartbeat() Failed to update viewers data for ID ${result["id"]}, ${e.toString()}`);
             }
         } else {
@@ -195,7 +195,7 @@ export async function mildomLiveHeartbeat(mildomAPI: MildomAPI, filtersRun: Filt
             logger.info(`mildomLiveHeartbeat() removing ${viewersIdsToDelete.length} viewers data...`);
             try {
                 await ViewersData.deleteMany({"id": {"$in": viewersIdsToDelete}});
-            } catch (e) {
+            } catch (e: any) {
                 logger.error(`mildomLiveHeartbeat() failed to remove viewers data, ${e.toString()}`);
             }
             
@@ -338,7 +338,8 @@ export async function mildomChannelsStats(mildomAPI: MildomAPI, filtersRun: Filt
     // Update history data
     logger.info("mildomChannelsStats() updating/inserting channel stats!");
     let histDBUpdate = historySet.filter((o) => o.mod === "update").map((new_upd) => {
-        ChannelStatsHistData.updateOne({"id": {"$eq": new_upd.id}, "platform": {"$eq": "mildom"}}, {"$addToSet": {history: new_upd["history"]}}, (err) => {
+        // @ts-ignore
+        ChannelStatsHistData.updateOne({"id": {"$eq": new_upd.id}, "platform": {"$eq": "mildom"}}, {"$addToSet": {history: new_upd["history"]}}, (err: any) => {
             if (err) {
                 logger.error(`mildomChannelsStats() failed to update history ${new_upd.id}, ${err.toString()}`);
             } else {

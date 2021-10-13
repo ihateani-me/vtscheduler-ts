@@ -49,7 +49,7 @@ export async function twcastChannelsDataset(dataset: VTuberModel[]) {
             .then((jsonRes) => {
                 return { data: jsonRes.data, group: channel.group, en_name: channel.name };
             })
-            .catch((err) => {
+            .catch((err: any) => {
                 logger.error(
                     `twcastChannelsDataset(${group}) failed fetching for ${
                         channel.id
@@ -113,13 +113,13 @@ export async function twcastChannelsDataset(dataset: VTuberModel[]) {
 
     if (insertData.length > 0) {
         logger.info(`twcastChannelsDataset(${group}) committing new data...`);
-        await ChannelsData.insertMany(insertData).catch((err) => {
+        await ChannelsData.insertMany(insertData).catch((err: any) => {
             logger.error(`twcastChannelsDataset(${group}) failed to insert new data, ${err.toString()}`);
         });
     }
     if (historyDatas.length > 0) {
         logger.info(`twcastChannelsDataset(${group}) committing new history data...`);
-        await ChannelStatsHistData.insertMany(historyDatas).catch((err) => {
+        await ChannelStatsHistData.insertMany(historyDatas).catch((err: any) => {
             logger.error(
                 `twcastChannelsDataset(${group}) failed to insert new history data, ${err.toString()}`
             );

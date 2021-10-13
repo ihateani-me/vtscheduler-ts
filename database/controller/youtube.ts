@@ -85,7 +85,7 @@ export async function youtubeChannelDataset(dataset: VTuberModel[], apiKeys: YTR
                 });
                 return items;
             })
-            .catch((err) => {
+            .catch((err: any) => {
                 logger.error(
                     `youtubeChannelDataset(${group}) failed to fetch info for chunk ${idx}, error: ${err.toString()}`
                 );
@@ -93,7 +93,7 @@ export async function youtubeChannelDataset(dataset: VTuberModel[], apiKeys: YTR
             })
     );
 
-    let items_data: any[] = await Promise.all(items_data_promises).catch((err) => {
+    let items_data: any[] = await Promise.all(items_data_promises).catch((err: any) => {
         logger.error(`youtubeChannelDataset() failed to fetch from API, error: ${err.toString()}`);
         return [];
     });
@@ -170,13 +170,13 @@ export async function youtubeChannelDataset(dataset: VTuberModel[], apiKeys: YTR
 
     if (to_be_committed.length > 0) {
         logger.info(`youtubeChannelDataset(${group}) committing new data...`);
-        await ChannelsData.insertMany(to_be_committed).catch((err) => {
+        await ChannelsData.insertMany(to_be_committed).catch((err: any) => {
             logger.error(`youtubeChannelDataset(${group}) failed to insert new data, ${err.toString()}`);
         });
     }
     if (historyDatas.length > 0) {
         logger.info(`youtubeChannelDataset(${group}) committing new history data...`);
-        await ChannelStatsHistData.insertMany(historyDatas).catch((err) => {
+        await ChannelStatsHistData.insertMany(historyDatas).catch((err: any) => {
             logger.error(
                 `youtubeChannelDataset(${group}) failed to insert new history data, ${err.toString()}`
             );

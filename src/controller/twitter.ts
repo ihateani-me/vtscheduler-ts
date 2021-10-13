@@ -134,7 +134,7 @@ export async function twitterSpacesHeartbeat(twtApi: TwitterAPI, filtersRun: Fil
                 };
                 try {
                     await ViewersData.updateOne({ id: { $eq: currentViewersData["id"] } }, viewUpdData);
-                } catch (e) {
+                } catch (e: any) {
                     logger.error(
                         `twitterSpacesHeartbeat() Failed to update viewers data for ID ${result["id"]}, ${e}`
                     );
@@ -229,7 +229,7 @@ export async function twitterSpacesHeartbeat(twtApi: TwitterAPI, filtersRun: Fil
             logger.info(`twitterSpacesHeartbeat() removing ${viewersIdsToDelete.length} viewers data...`);
             try {
                 await ViewersData.deleteMany({ id: { $in: viewersIdsToDelete } });
-            } catch (e) {
+            } catch (e: any) {
                 logger.error(`twitterSpacesHeartbeat() failed to remove viewers data, ${e}`);
             }
         }

@@ -36,7 +36,7 @@ export class TwitchTasks {
         logger.info("handleTTVChannel() executing job...");
         try {
             await ttvChannelsStats(this.ttvAPI, this.filtersUsage);
-        } catch (e) {
+        } catch (e: any) {
             this.channelLock.unlock();
             logger.error(`handleTTVChannel() an error occured while processing the task: ${e.toString()}`);
             console.error(e);
@@ -53,7 +53,7 @@ export class TwitchTasks {
         logger.info("handleTTVLive() executing job...");
         try {
             await ttvLiveHeartbeat(this.ttvAPI, this.filtersUsage);
-        } catch (e) {
+        } catch (e: any) {
             this.liveLock.unlock();
             logger.error(`handleTTVLive() an error occured while processing the task: ${e.toString()}`);
             console.error(e);
@@ -70,7 +70,7 @@ export class TwitchTasks {
         logger.info("handleTTVSchedules() executing job...");
         try {
             await ttvLiveSchedules(this.ttvAPI, this.filtersUsage);
-        } catch (e) {
+        } catch (e: any) {
             this.videosLock.unlock();
             logger.error(`handleTTVSchedules() an error occured while processing the task: ${e.toString()}`);
             console.error(e);

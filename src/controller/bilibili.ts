@@ -80,7 +80,7 @@ export async function bilibiliVideoFeeds(filtersRun: FiltersConfig) {
         .then((res) => {
             return res.data;
         })
-        .catch((err) => {
+        .catch((err: any) => {
             logger.error(`bilibiliVideoFeeds() failed to fetch chunk ${chunk}, ${err.toString()}`);
             return [];
         })
@@ -157,7 +157,7 @@ export async function bilibiliVideoFeeds(filtersRun: FiltersConfig) {
 
     if (insertData.length > 0) {
         logger.info(`bilibiliVideoFeeds() inserting new videos to databases.`)
-        await VideosData.insertMany(insertData).catch((err) => {
+        await VideosData.insertMany(insertData).catch((err: any) => {
             logger.error(`bilibiliVideoFeeds() failed to insert to database.\n${err.toString()}`);
         });
     }
@@ -346,7 +346,7 @@ export async function bilibiliLiveHeartbeat(filtersRun: FiltersConfig) {
             }
             try {
                 await ViewersData.updateOne({"id": {"$eq": currentViewersData["id"]}}, viewUpdData);
-            } catch (e) {
+            } catch (e: any) {
                 logger.error(`bilibiliLiveHeartbeat() Failed to update viewers data for ID ${userId}, ${e.toString()}`);
             }
         } else {
@@ -360,7 +360,7 @@ export async function bilibiliLiveHeartbeat(filtersRun: FiltersConfig) {
                 "group": group,
                 "platform": "bilibili"
             }
-            await ViewersData.insertMany([viewNewData]).catch((err) => {
+            await ViewersData.insertMany([viewNewData]).catch((err: any) => {
                 logger.error(`bilibiliLiveHeartbeat() Failed to add viewers data for ID ${userId}, ${err.toString()}`);
             })
         }
@@ -422,7 +422,7 @@ export async function bilibiliLiveHeartbeat(filtersRun: FiltersConfig) {
             logger.info(`bilibiliLiveHeartbeat() removing ${viewersIdsToDelete.length} viewers data...`);
             try {
                 await ViewersData.deleteMany({"id": {"$in": viewersIdsToDelete}});
-            } catch (e) {
+            } catch (e: any) {
                 logger.error(`bilibiliLiveHeartbeat() failed to remove viewers data, ${e.toString()}`);
             }
             
@@ -431,7 +431,7 @@ export async function bilibiliLiveHeartbeat(filtersRun: FiltersConfig) {
 
     if (insertData.length > 0) {
         logger.info("bilibiliLiveHeartbeat() inserting new videos...");
-        await VideosData.insertMany(insertData).catch((err) => {
+        await VideosData.insertMany(insertData).catch((err: any) => {
             logger.error(`bilibiliLiveHeartbeat() failed to insert new video to database.\n${err.toString()}`);
         });
     }
@@ -439,7 +439,7 @@ export async function bilibiliLiveHeartbeat(filtersRun: FiltersConfig) {
         logger.info("bilibiliLiveHeartbeat() updating existing videos...");
         const dbUpdateCommit = updateData.map((new_update) => (
             // @ts-ignore
-            VideosData.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
+            VideosData.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err: any) => {
                 if (err) {
                     // @ts-ignore
                     logger.error(`bilibiliLiveHeartbeat() failed to update ${new_update.id}, ${err.toString()}`);
@@ -449,7 +449,7 @@ export async function bilibiliLiveHeartbeat(filtersRun: FiltersConfig) {
                 }
             })
         ))
-        await Promise.all(dbUpdateCommit).catch((err) => {
+        await Promise.all(dbUpdateCommit).catch((err: any) => {
             logger.error(`bilibiliLiveHeartbeat() failed to update databases, ${err.toString()}`);
         })
     }
@@ -574,7 +574,7 @@ export async function bilibiliChannelsStats(filtersRun: FiltersConfig) {
         logger.info("bilibiliChannelsStats() updating channels...");
         const dbUpdateCommit = updateData.map((new_update) => (
             // @ts-ignore
-            BilibiliChannel.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err) => {
+            BilibiliChannel.findOneAndUpdate({"id": {"$eq": new_update.id}}, new_update, null, (err: any) => {
                 if (err) {
                     // @ts-ignore
                     logger.error(`bilibiliChannelsStats() failed to update ${new_update.id}, ${err.toString()}`);
@@ -584,7 +584,8 @@ export async function bilibiliChannelsStats(filtersRun: FiltersConfig) {
                 }
             })
         ))
-        await Promise.all(dbUpdateCommit).catch((err) => {
+        // @ts-ignore
+        await Promise.all(dbUpdateCommit).catch((err: any) => {
             logger.error(`bilibiliChannelsStats() failed to update databases, ${err.toString()}`);
         })
     }
@@ -592,7 +593,8 @@ export async function bilibiliChannelsStats(filtersRun: FiltersConfig) {
     // Update history data
     logger.info("bilibiliChannelsStats() updating/inserting channel stats!");
     let histDBUpdate = historySet.filter((o) => o.mod === "update").map((new_upd) => {
-        ChannelStatsHistData.updateOne({"id": {"$eq": new_upd.id}, "platform": {"$eq": "bilibili"}}, {"$addToSet": {history: new_upd["history"]}}, (err) => {
+        // @ts-ignore
+        ChannelStatsHistData.updateOne({"id": {"$eq": new_upd.id}, "platform": {"$eq": "bilibili"}}, {"$addToSet": {history: new_upd["history"]}}, (err: any) => {
             if (err) {
                 logger.error(`bilibiliChannelsStats() failed to update history ${new_upd.id}, ${err.toString()}`);
             } else {
@@ -610,12 +612,12 @@ export async function bilibiliChannelsStats(filtersRun: FiltersConfig) {
     })
 
     if (insertDBUpdateList.length > 0) {
-        await ChannelStatsHistData.insertMany(insertDBUpdateList).catch((err) => {
+        await ChannelStatsHistData.insertMany(insertDBUpdateList).catch((err: any) => {
             logger.error(`bilibiliChannelsStats() failed to insert new history to databases, ${err.toString()}`);
         })
     }
     if (histDBUpdate.length > 0) {
-        await Promise.all(histDBUpdate).catch((err) => {
+        await Promise.all(histDBUpdate).catch((err: any) => {
             logger.error(`bilibiliChannelsStats() failed to update history databases, ${err.toString()}`);
         });
     }

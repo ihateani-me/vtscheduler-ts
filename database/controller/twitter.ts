@@ -84,13 +84,13 @@ export async function twitterChannelDataset(dataset: VTuberModel[], twtAPI: Twit
 
     if (newChannels.length > 0) {
         logger.info(`twitterChannelDataset(${group}) committing new data...`);
-        await ChannelsData.insertMany(newChannels).catch((err) => {
+        await ChannelsData.insertMany(newChannels).catch((err: any) => {
             logger.error(`twitterChannelDataset(${group}) failed to insert new data, ${err.toString()}`);
         });
     }
     if (historyDatas.length > 0) {
         logger.info(`twitterChannelDataset(${group}) committing new history data...`);
-        await ChannelStatsHistData.insertMany(historyDatas).catch((err) => {
+        await ChannelStatsHistData.insertMany(historyDatas).catch((err: any) => {
             logger.error(`twitterChannelDataset(${group}) failed to insert new history data, ${err.toString()}`);
         });
     }
