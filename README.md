@@ -8,6 +8,7 @@ Written in Typescript, and using Mongoose.
 - [x] Twitch Implementation
 - [x] Twitcasting Implementation
 - [x] Mildom Implementation
+- [x] Twitter Implementation
 
 BiliBili Implementation is a little bit hindered because rate limiting, currently working around the limitation :smile:
 
@@ -37,6 +38,11 @@ You need: Twitch API Key, register a new application on your Developer Console
 
 That will create a Client ID and Client Secret for you to use.
 
+### Twitter Spaces
+You need: Twitter Developer API Token (Bearer Token).
+
+You need to apply for developer access at https://developer.twitter.com/en and then make sure you're application has access to the v2 API.
+
 ## Configuration
 Configure the scheduler in [src/config.json](src/config.json.example)<br>
 Rename the config.json.example to config.json<br>
@@ -55,12 +61,16 @@ Rename the config.json.example to config.json<br>
         "client_id": null,
         "client_secret": null
     },
+    "twitter": {
+        "token": null
+    },
     "workers": {
         "youtube": true,
         "bilibili": false,
         "twitch": false,
         "twitcasting": false,
-        "mildom": false
+        "mildom": false,
+        "twitter": false
     },
     "intervals": {
         "bilibili": {
@@ -80,11 +90,17 @@ Rename the config.json.example to config.json<br>
         },
         "twitch": {
             "channels": "*/60 */2 * * *",
+            "feeds": "*/15 * * * *",
             "live": "*/1 * * * *"
         },
         "mildom": {
             "channels": "*/60 */2 * * *",
             "live": "*/1 * * * *"
+        },
+        "twitter": {
+            "channels": "*/60 */2 * * *",
+            "live": "*/1 * * * *",
+            "feeds": "*/3 * * * *"
         }
     },
     "filters": {
@@ -110,11 +126,15 @@ Rename the config.json.example to config.json<br>
 - twitch
   - **client_id**: Twitch Application Client ID
   - **client_secret**: Twitch Application Client Secret
+- twitter
+  - **token**: The breater token of your Twitter application
 - workers:
   - **youtube**: enable Youtube scheduler (ensure that your API keys is enough)
   - **bilibili**: enable bilibili scheduler
   - **twitch**: enable Twitch scheduler (ensure you have Client ID and Secret put)
   - **twitcasting**: enable Twitcasting scheduler
+  - **mildom**: enable Mildom scheduler
+  - **twitter**: enable Twitter Spaces scheduler
 - **intervals**: self-explanatory, all of those are in cron-style time<br>
   If you need help refer here: [crontab.guru](https://crontab.guru/)<br>
   You can also disable the workers by putting `null` instead of the crontab styles
