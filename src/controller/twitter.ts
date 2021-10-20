@@ -32,6 +32,12 @@ function bestProfilePicture(url: string): string {
     return firstPart + extension;
 }
 
+const stateMap = {
+    "scheduled": "upcoming",
+    "live": "live",
+    "ended": "past",
+}
+
 export async function twitterSpacesHeartbeat(twtApi: TwitterAPI, filtersRun: FiltersConfig) {
     logger.info("twitterSpacesHeartbeat() fetching channels and videos data...");
     let video_sets = await VideosData.filteredFind(filtersRun["exclude"], filtersRun["include"], undefined, [
@@ -64,7 +70,7 @@ export async function twitterSpacesHeartbeat(twtApi: TwitterAPI, filtersRun: Fil
     for (let i = 0; i < spacesResults.length; i++) {
         const result = spacesResults[i];
 
-        const spaceStatus = result.state;
+        const spaceStatus = _.get(stateMap, result.state, result.state);
         const publishedAt = DateTime.fromISO(result.created_at);
         const creatorId = result.creator_id;
         const channelMap = _.find(channels, { user_id: creatorId });
@@ -79,11 +85,13 @@ export async function twitterSpacesHeartbeat(twtApi: TwitterAPI, filtersRun: Fil
         }
         const oldMappings = _.find(video_sets, { id: result.id });
 
-        const currentView = result.participant_count ?? 0;
+        let currentView = result.participant_count ?? 0;
         let peakViewers = _.get(oldMappings, "peakViewers", currentView);
+        const previousViewers = _.get(oldMappings, "viewers", currentView);
         if (currentView > peakViewers) {
             peakViewers = currentView;
         }
+
 
         const timeMapping: {[key: string]: any} = {
             startTime,
@@ -101,6 +109,15 @@ export async function twitterSpacesHeartbeat(twtApi: TwitterAPI, filtersRun: Fil
         if (typeof startTime === "number" && typeof startSchedule === "number") {
             timeMapping.lateTime = startTime - startSchedule || NaN;
         }
+        if (spaceStatus === "past") {
+            // Dont update because it will be set as zero.
+            currentView = previousViewers;
+            const endTime = Math.floor(DateTime.utc().toSeconds());
+            timeMapping.endTime = endTime;
+            if (typeof startTime === "number" && typeof startSchedule === "number") {
+                timeMapping.duration = (endTime - startTime) || NaN;
+            }
+        }
 
         const updateData: VideoProps = {
             id: result.id,
@@ -113,7 +130,6 @@ export async function twitterSpacesHeartbeat(twtApi: TwitterAPI, filtersRun: Fil
             peakViewers,
             platform: "twitter",
         }
-        updatedData.push(updateData);
 
         // checks for viewers data
         let viewersDataArrays: {
@@ -140,6 +156,7 @@ export async function twitterSpacesHeartbeat(twtApi: TwitterAPI, filtersRun: Fil
                     viewersData: viewersDataArrays,
                 };
                 try {
+                    logger.info(`twitterSpacesHeartbeat() updating viewers data for ${result.id} ${currentViewersData._id}`);
                     await ViewersData.updateOne({ _id: { $eq: currentViewersData._id } }, viewUpdData);
                 } catch (e: any) {
                     logger.error(
@@ -157,6 +174,7 @@ export async function twitterSpacesHeartbeat(twtApi: TwitterAPI, filtersRun: Fil
                     group: channelMap.group,
                     platform: "twitter",
                 };
+                logger.info(`twitterSpacesHeartbeat() creating viewers data for ${result.id}`);
                 await ViewersData.insertMany([viewNewData]).catch((err) => {
                     logger.error(
                         `twitterSpacesHeartbeat() Failed to add viewers data for ID ${result["id"]}, ${err.toString()}`
@@ -164,71 +182,33 @@ export async function twitterSpacesHeartbeat(twtApi: TwitterAPI, filtersRun: Fil
                 });
             }
         }
+        if (spaceStatus === "past") {
+            let collectViewersData = await ViewersData.findOne({
+                id: { $eq: result.id },
+                platform: { $eq: "twitter" },
+            })
+                .then((doc) => {
+                    return doc;
+                })
+                .catch(() => {
+                    return undefined;
+                });
+            if (typeof collectViewersData !== "undefined" && !_.isNull(collectViewersData)) {
+                let viewersStats: any[] = _.get(collectViewersData, "viewersData", []);
+                logger.info(`twitterSpacesHeartbeat() rounding up viewers data for ${result.id}`);
+                if (viewersStats.length > 0) {
+                    let viewersNum = _.map(viewersStats, "viewers");
+                    viewersNum = viewersNum.filter((v) => typeof v === "number");
+                    let averageViewers = Math.round(_.sum(viewersNum) / viewersNum.length);
+                    // @ts-ignore
+                    updateData["averageViewers"] = isNaN(averageViewers) ? 0 : averageViewers;
+                }
+            }
+        }
+        updatedData.push(updateData);
     }
 
     logger.info("twitterSpacesHeartbeat() checking old data for moving it to past streams...");
-    const oldData: VideoProps[] = [];
-    for (let i = 0; i < video_sets.length; i++) {
-        const oldRes = video_sets[i];
-        const updMap = _.find(updatedData, { id: oldRes.id });
-        if (!isNone(updMap)) {
-            continue;
-        }
-
-        const endTime = Math.floor(DateTime.utc().toSeconds());
-        // @ts-ignore
-        if (oldData.status !== "live") {
-            continue;
-        }
-
-        // @ts-ignore
-        let updOldData: VideoProps = {
-            id: oldRes.id,
-            status: "past",
-            timedata: {
-                // @ts-ignore
-                startTime: oldRes.timedata.startTime,
-                endTime,
-                // @ts-ignore
-                duration: endTime - oldRes.timedata.startTime ?? NaN,
-                // @ts-ignore
-                publishedAt: oldRes.timedata.publishedAt,
-            }
-        }
-
-        if (_.has(oldData, "timedata.lateTime")) {
-            // @ts-ignore
-            updOldData.timedata.lateTime = oldData.timedata?.lateTime;
-        }
-        if (_.has(oldData, "timedata.scheduledStartTime")) {
-            // @ts-ignore
-            updOldData.timedata.scheduledStartTime = oldData?.timedata?.scheduledStartTime;
-        }
-
-        let collectViewersData = await ViewersData.findOne({
-            id: { $eq: oldRes.id },
-            platform: { $eq: "twitter" },
-        })
-            .then((doc) => {
-                return doc;
-            })
-            .catch(() => {
-                return undefined;
-            });
-        if (typeof collectViewersData !== "undefined" && !_.isNull(collectViewersData)) {
-            let viewersStats: any[] = _.get(collectViewersData, "viewersData", []);
-            if (viewersStats.length > 0) {
-                let viewersNum = _.map(viewersStats, "viewers");
-                viewersNum = viewersNum.filter((v) => typeof v === "number");
-                let averageViewers = Math.round(_.sum(viewersNum) / viewersNum.length);
-                updOldData["averageViewers"] = isNaN(averageViewers) ? 0 : averageViewers;
-            }
-        }
-        // @ts-ignore
-        oldData.push(updOldData);
-    }
-
-    updatedData = updatedData.concat(oldData);
     let dataWithAverageViewers = _.filter(updatedData, (o) => _.has(o, "averageViewers"));
     if (dataWithAverageViewers.length > 0) {
         let viewersIdsToDelete = _.map(dataWithAverageViewers, "id");

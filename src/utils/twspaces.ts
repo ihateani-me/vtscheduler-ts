@@ -22,7 +22,7 @@ export interface RawSpacesData {
     id: string;
     title: string;
     participant_count: number;
-    state: "live" | "scheduled";
+    state: "live" | "scheduled" | "ended";
     creator_id: string;
     started_at: string;
     created_at: string;
