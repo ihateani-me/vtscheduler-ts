@@ -112,7 +112,14 @@ export async function twitterSpacesHeartbeat(twtApi: TwitterAPI, filtersRun: Fil
         if (spaceStatus === "past") {
             // Dont update because it will be set as zero.
             currentView = previousViewers;
-            const endTime = Math.floor(DateTime.utc().toSeconds());
+            let endTime = Math.floor(DateTime.utc().toSeconds());
+            const lastUpdateTime = result.updated_at;
+            if (typeof lastUpdateTime === "string") {
+                const parsedUpdateTime = DateTime.fromISO(lastUpdateTime);
+                if (parsedUpdateTime.isValid) {
+                    endTime = Math.floor(parsedUpdateTime.toSeconds());
+                }
+            }
             timeMapping.endTime = endTime;
             if (typeof startTime === "number" && typeof startSchedule === "number") {
                 timeMapping.duration = (endTime - startTime) || NaN;

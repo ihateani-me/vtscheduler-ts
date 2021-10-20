@@ -28,6 +28,7 @@ export interface RawSpacesData {
     created_at: string;
     is_ticketed: boolean;
     scheduled_start?: string;
+    updated_at?: string;
 }
 
 export interface RawUserMetricsData {
@@ -247,7 +248,7 @@ export class TwitterAPI {
                 this.BASE_v2 + "spaces",
                 concat(
                     [`ids=${spaceIdSets.join(",")}`],
-                    ["space.fields=creator_id,id,created_at,title,started_at,scheduled_start,is_ticketed,participant_count,state"],
+                    ["space.fields=creator_id,id,created_at,title,started_at,scheduled_start,is_ticketed,participant_count,state,updated_at"],
                     [`expansions=creator_id`]
                 )
             )
