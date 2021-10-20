@@ -81,6 +81,9 @@ export async function twitterSpacesHeartbeat(twtApi: TwitterAPI, filtersRun: Fil
 
         const currentView = result.participant_count ?? 0;
         let peakViewers = _.get(oldMappings, "peakViewers", currentView);
+        if (currentView > peakViewers) {
+            peakViewers = currentView;
+        }
 
         const timeMapping: {[key: string]: any} = {
             startTime,
@@ -96,7 +99,7 @@ export async function twitterSpacesHeartbeat(twtApi: TwitterAPI, filtersRun: Fil
         }
         timeMapping.scheduledStartTime = startSchedule;
         if (typeof startTime === "number" && typeof startSchedule === "number") {
-            timeMapping.duration = startTime - startSchedule || NaN;
+            timeMapping.lateTime = startTime - startSchedule || NaN;
         }
 
         const updateData: VideoProps = {
@@ -118,7 +121,7 @@ export async function twitterSpacesHeartbeat(twtApi: TwitterAPI, filtersRun: Fil
             viewers?: number | undefined;
         }[] = [];
         if (spaceStatus === "live") {
-            let currentViewersData = await ViewersData.findOne({ id: { $eq: result.id } })
+            let currentViewersData = await ViewersData.findOne({ id: { $eq: result.id }, platform: {$eq: "twitter"} })
                 .then((doc) => {
                     return doc;
                 })
@@ -137,7 +140,7 @@ export async function twitterSpacesHeartbeat(twtApi: TwitterAPI, filtersRun: Fil
                     viewersData: viewersDataArrays,
                 };
                 try {
-                    await ViewersData.updateOne({ id: { $eq: currentViewersData["id"] } }, viewUpdData);
+                    await ViewersData.updateOne({ _id: { $eq: currentViewersData._id } }, viewUpdData);
                 } catch (e: any) {
                     logger.error(
                         `twitterSpacesHeartbeat() Failed to update viewers data for ID ${result["id"]}, ${e}`
@@ -327,7 +330,7 @@ export async function twitterSpacesFeeds(twtApi: TwitterAPI, filtersRun: Filters
         }
         timeMapping.scheduledStartTime = startSchedule;
         if (typeof startTime === "number" && typeof startSchedule === "number") {
-            timeMapping.duration = startTime - startSchedule || NaN;
+            timeMapping.lateTime = startTime - startSchedule || NaN;
         }
 
         const insertData: VideoProps = {
