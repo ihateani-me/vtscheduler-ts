@@ -105,7 +105,7 @@ export async function twitterSpacesHeartbeat(twtApi: TwitterAPI, filtersRun: Fil
             // @ts-ignore
             status: spaceStatus,
             // @ts-ignore
-            timeData: timeMapping,
+            timedata: timeMapping,
             viewers: currentView,
             peakViewers,
             platform: "twitter",
@@ -184,12 +184,12 @@ export async function twitterSpacesHeartbeat(twtApi: TwitterAPI, filtersRun: Fil
             status: "past",
             timedata: {
                 // @ts-ignore
-                startTime: oldRes.timeData.startTime,
+                startTime: oldRes.timedata.startTime,
                 endTime,
                 // @ts-ignore
-                duration: endTime - oldRes.timeData.startTime ?? NaN,
+                duration: endTime - oldRes.timedata.startTime ?? NaN,
                 // @ts-ignore
-                publishedAt: oldRes.timeData.publishedAt,
+                publishedAt: oldRes.timedata.publishedAt,
             }
         }
 
@@ -336,7 +336,7 @@ export async function twitterSpacesFeeds(twtApi: TwitterAPI, filtersRun: Filters
             // @ts-ignore
             status: spaceStatus,
             // @ts-ignore
-            timeData: timeMapping,
+            timedata: timeMapping,
             viewers: currentView,
             peakViewers,
             channel_id: channelMap.id,
