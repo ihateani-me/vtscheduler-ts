@@ -169,6 +169,50 @@ function matchPlatformIDs(description: string) {
     return [...youtubeMatched, ...twitchMatched];
 }
 
+function fallbackMatchMention(description: string): string[] {
+    // Clean up some results
+    const cleanUpMentionResult = (result: string) => {
+        if (result.endsWith("/") || result.endsWith("\\") || result.endsWith("／")) {
+            result = result.slice(0, -1);
+        }
+        return result.trim();
+    }
+
+
+    const mentionChannelMatch = /\@/gi;
+
+    const allMatched = description.matchAll(mentionChannelMatch);
+    const collectedString = [];
+    const collectedRanges = [];
+    let nextData = allMatched.next();
+    while (!nextData.done) {
+        collectedRanges.push(nextData.value.index);
+        nextData = allMatched.next();
+    }
+    for (let i = 0; i < collectedRanges.length; i++) {
+        const start = collectedRanges[i];
+        const end = collectedRanges[i + 1];
+
+        let cutFrom = description.slice(start);
+        if (typeof end === "number") {
+            cutFrom = description.slice(start, end);
+            let endNewLine = cutFrom.indexOf("\n");
+            if (endNewLine !== -1) {
+                cutFrom = cutFrom.slice(0, endNewLine);
+            }
+        } else {
+            let endNewLine = cutFrom.indexOf("\n");
+            if (endNewLine === -1) {
+                endNewLine = cutFrom.length;
+            }
+            cutFrom = cutFrom.slice(0, endNewLine);
+        }
+        cutFrom = cutFrom.trim().slice(1);
+        collectedString.push(cleanUpMentionResult(cutFrom));
+    }
+    return collectedString;
+}
+
 function matchDescriptionMentions(description: string): [MentionedData[], string[]] {
     if (isNone(description, true)) {
         return [[], []];
@@ -179,7 +223,18 @@ function matchDescriptionMentions(description: string): [MentionedData[], string
     const allMatchedMentionName = iterateMatchAllSelect(description.matchAll(mentionChannelMatch), 1).flatMap(
         // @ts-ignore
         (res) => res.trim()
-    );
+    ) as string[];
+    // This is scuffed way to check for mentions in description.
+    // I want to fetch the webpage directly and fetch the description from the
+    // ytInitialData since it contains parsed data, but it's costly to request from the API
+    // then request to the webpage.
+    // So this is a fallback.
+    const fallbackMentionName = fallbackMatchMention(description);
+    fallbackMentionName.forEach((name) => {
+        if (!allMatchedMentionName.includes(name)) {
+            allMatchedMentionName.push(name);
+        };
+    });
     return [allMatchedChannelURL, allMatchedMentionName];
 }
 
