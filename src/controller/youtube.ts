@@ -178,7 +178,6 @@ function fallbackMatchMention(description: string): string[] {
         return result.trim();
     }
 
-
     const mentionChannelMatch = /\@/gi;
 
     const allMatched = description.matchAll(mentionChannelMatch);
