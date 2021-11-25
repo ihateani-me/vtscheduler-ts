@@ -390,7 +390,9 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: F
         return;
     }
     logger.info(`youtubeVideoFeeds() Parsing ${youtube_videos_data.length} new videos`);
-    const commitPromises = youtube_videos_data.map(async (res_item) => {
+    const insertThisData: any[] = [];
+    for (let i = 0; i < youtube_videos_data.length; i++) {
+        const res_item = youtube_videos_data[i];
         let video_id = res_item["id"];
         let video_type;
         if (!_.has(res_item, "liveStreamingDetails")) {
@@ -588,14 +590,12 @@ export async function youtubeVideoFeeds(apiKeys: YTRotatingAPIKey, filtersRun: F
             }
         }
 
-        return finalData;
-    });
+        insertThisData.push(finalData);   
+    };
 
-    const to_be_committed = await Promise.all(commitPromises);
-
-    if (to_be_committed.length > 0) {
+    if (insertThisData.length > 0) {
         logger.info(`youtubeVideoFeeds() inserting new videos to databases.`);
-        await VideosData.insertMany(to_be_committed).catch((err) => {
+        await VideosData.insertMany(insertThisData).catch((err) => {
             logger.error(`youtubeVideoFeeds() failed to insert to database.\n${err.toString()}`);
         });
     }
@@ -685,7 +685,10 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
     }
     items_data = _.flattenDeep(items_data);
     logger.info(`youtubeLiveHeartbeat() preparing update...`);
-    let commitPromises = items_data.map(async (res_item) => {
+    let updateData: any[] = [];
+    for (let i = 0; i < items_data.length; i++) {
+        const res_item = items_data[i];
+
         let video_id = res_item["id"];
         let video_type;
         if (!_.has(res_item, "liveStreamingDetails")) {
@@ -831,6 +834,72 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
             }
         }
 
+        let thumbs = getBestThumbnail(snippets["thumbnails"], video_id);
+
+        let finalData: VideoProps = {
+            id: video_id,
+            title: title,
+            status: video_type,
+            timedata: {
+                publishedAt: publishedAt,
+                // @ts-ignore
+                startTime: start_time,
+                // @ts-ignore
+                endTime: ended_time,
+                // @ts-ignore
+                scheduledStartTime: scheduled_start_time,
+                // @ts-ignore
+                lateTime: lateness,
+                // @ts-ignore
+                duration: duration,
+            },
+            // @ts-ignore
+            viewers: currentViewers,
+            // @ts-ignore
+            peakViewers: currentPeakViewers,
+            mentioned: actualChannelMentioned,
+            thumbnail: thumbs,
+            is_missing: false,
+            is_premiere: is_premiere,
+        };
+
+        if (video_type === "live") {
+            // check if it's a member stream by doing a very scuffed way to check :)
+            let liveChatId: string | undefined = _.get(livedetails, "activeLiveChatId", undefined);
+            if (typeof liveChatId !== "undefined") {
+                // Viewers is hidden, status is live, viewCount are missing, and liveChat exist
+                // It just means that the stream are most likely to be members-only mode.
+                // This should save a lot of API call :)
+                // And can be more consistent, if they since middleway through
+                if (!_.has(livedetails, "concurrentViewers") && !_.has(statistics, "viewCount")) {
+                    finalData["is_member"] = true;
+                } else {
+                    finalData["is_member"] = false;
+                }
+            }
+        }
+        if (video_type === "past") {
+            let collectViewersData = await ViewersData.findOne({
+                id: { $eq: video_id },
+                platform: { $eq: "youtube" },
+            })
+                .then((doc) => {
+                    return doc;
+                })
+                .catch(() => {
+                    return undefined;
+                });
+            if (typeof collectViewersData !== "undefined" && !_.isNull(collectViewersData)) {
+                let viewersStats: any[] = _.get(collectViewersData, "viewersData", []);
+                if (viewersStats.length > 0) {
+                    let viewersNum = _.map(viewersStats, "viewers");
+                    viewersNum = viewersNum.filter((v) => typeof v === "number");
+                    let averageViewers = Math.round(_.sum(viewersNum) / viewersNum.length);
+                    finalData["averageViewers"] = isNaN(averageViewers) ? 0 : averageViewers;
+                }
+            }
+        }
+
         if (video_type === "live" && typeof currentViewers === "number") {
             let viewersDataArrays: {
                 timestamp: number;
@@ -879,77 +948,12 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
             }
         }
 
-        let thumbs = getBestThumbnail(snippets["thumbnails"], video_id);
-
-        let finalData: VideoProps = {
-            id: video_id,
-            title: title,
-            status: video_type,
-            timedata: {
-                publishedAt: publishedAt,
-                // @ts-ignore
-                startTime: start_time,
-                // @ts-ignore
-                endTime: ended_time,
-                // @ts-ignore
-                scheduledStartTime: scheduled_start_time,
-                // @ts-ignore
-                lateTime: lateness,
-                // @ts-ignore
-                duration: duration,
-            },
-            // @ts-ignore
-            viewers: currentViewers,
-            // @ts-ignore
-            peakViewers: currentPeakViewers,
-            mentioned: actualChannelMentioned,
-            thumbnail: thumbs,
-            is_missing: false,
-            is_premiere: is_premiere,
-        };
-        if (video_type === "live") {
-            // check if it's a member stream by doing a very scuffed way to check :)
-            let liveChatId: string | undefined = _.get(livedetails, "activeLiveChatId", undefined);
-            if (typeof liveChatId !== "undefined") {
-                // Viewers is hidden, status is live, viewCount are missing, and liveChat exist
-                // It just means that the stream are most likely to be members-only mode.
-                // This should save a lot of API call :)
-                // And can be more consistent, if they since middleway through
-                if (!_.has(livedetails, "concurrentViewers") && !_.has(statistics, "viewCount")) {
-                    finalData["is_member"] = true;
-                } else {
-                    finalData["is_member"] = false;
-                }
-            }
-        }
-        if (video_type === "past") {
-            let collectViewersData = await ViewersData.findOne({
-                id: { $eq: video_id },
-                platform: { $eq: "youtube" },
-            })
-                .then((doc) => {
-                    return doc;
-                })
-                .catch(() => {
-                    return undefined;
-                });
-            if (typeof collectViewersData !== "undefined" && !_.isNull(collectViewersData)) {
-                let viewersStats: any[] = _.get(collectViewersData, "viewersData", []);
-                if (viewersStats.length > 0) {
-                    let viewersNum = _.map(viewersStats, "viewers");
-                    viewersNum = viewersNum.filter((v) => typeof v === "number");
-                    let averageViewers = Math.round(_.sum(viewersNum) / viewersNum.length);
-                    finalData["averageViewers"] = isNaN(averageViewers) ? 0 : averageViewers;
-                }
-            }
-        }
-        return finalData;
-    });
-    let to_be_committed = await Promise.all(commitPromises);
+        updateData.push(finalData);
+    }
 
     // check if something missing from the API
     let expectedResults = _.map(video_sets, "id");
-    let actualResults = _.map(to_be_committed, "id");
+    let actualResults = _.map(updateData, "id");
     let differenceResults = _.difference(expectedResults, actualResults);
     // Check if there's difference and make sure only run if the quota is fine and not running out.
     // So it doesn't fuck currently running stream.
@@ -999,9 +1003,9 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
             }
             filteredDifferences.push(idData);
         }
-        to_be_committed = _.concat(to_be_committed, filteredDifferences);
+        updateData = _.concat(updateData, filteredDifferences);
     }
-    let dataWithAverageViewers = _.filter(to_be_committed, (o) => _.has(o, "averageViewers"));
+    let dataWithAverageViewers = _.filter(updateData, (o) => _.has(o, "averageViewers"));
     if (dataWithAverageViewers.length > 0) {
         let viewersIdsToDelete = _.map(dataWithAverageViewers, "id");
         if (viewersIdsToDelete.length > 0) {
@@ -1014,9 +1018,9 @@ export async function youtubeLiveHeartbeat(apiKeys: YTRotatingAPIKey, filtersRun
         }
     }
 
-    if (to_be_committed.length > 0) {
+    if (updateData.length > 0) {
         logger.info(`youtubeLiveHeartbeat() committing update...`);
-        const dbUpdate = to_be_committed.map((new_update) =>
+        const dbUpdate = updateData.map((new_update) =>
             // @ts-ignore
             VideosData.findOneAndUpdate({ id: { $eq: new_update.id } }, new_update, null, (err) => {
                 if (err) {
@@ -1304,7 +1308,9 @@ export async function youtubeVideoMissingCheck(apiKeys: YTRotatingAPIKey, filter
     }
     items_data = _.flattenDeep(items_data);
     logger.info(`youtubeVideoMissingCheck() preparing update...`);
-    let commitPromises = items_data.map(async (res_item) => {
+    const pushMissingData: any[] = [];
+    for (let i = 0; i < items_data.length; i++) {
+        const res_item = items_data[i];
         let video_id = res_item["id"];
         let video_type;
         if (!_.has(res_item, "liveStreamingDetails")) {
@@ -1506,13 +1512,12 @@ export async function youtubeVideoMissingCheck(apiKeys: YTRotatingAPIKey, filter
                 }
             }
         }
-        return finalData;
-    });
-    let to_be_committed = await Promise.all(commitPromises);
+        pushMissingData.push(finalData);
+    };
 
-    if (to_be_committed.length > 0) {
+    if (pushMissingData.length > 0) {
         logger.info(`youtubeVideoMissingCheck() committing update...`);
-        const dbUpdate = to_be_committed.map((new_update) =>
+        const dbUpdate = pushMissingData.map((new_update) =>
             // @ts-ignore
             VideosData.findOneAndUpdate({ id: { $eq: new_update.id } }, new_update, null, (err) => {
                 if (err) {
