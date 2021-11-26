@@ -28,7 +28,7 @@ if (mongouri.endsWith("/")) {
     mongouri = mongouri.slice(0, -1);
 }
 
-mongoose.connect(`${mongouri}/${config.mongodb.dbname}`, {
+mongoose.connect(`${mongouri}/${config.mongodb.dbname}?authSource=admin`, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
     useFindAndModify: false,
